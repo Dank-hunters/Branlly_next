@@ -1,0 +1,45 @@
+{
+  "$schema": "../web/node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Branlly Next",
+  "version": "0.1.0",
+  "identifier": "com.dankhunters.branlly",
+  "build": {
+    "frontendDist": "../web/dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "corepack pnpm dev --host 127.0.0.1 --port 1420",
+    "beforeBuildCommand": "corepack pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Branlly",
+        "width": 390,
+        "height": 390,
+        "minWidth": 320,
+        "minHeight": 320,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+[package]
+name = "branlly-desktop"
+description = "Tauri desktop composition root for Branlly Next"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+name = "branlly_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+branlly-core = { path = "../../../crates/branlly-core" }
+branlly-platform = { path = "../../../crates/branlly-platform" }
+log = "0.4.27"
+serde.workspace = true
+tauri = { version = "2.11.3", features = [] }
+tauri-plugin-log = "2.7.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+branlly-platform-linux = { path = "../../../crates/branlly-platform-linux" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+branlly-platform-windows = { path = "../../../crates/branlly-platform-windows" }

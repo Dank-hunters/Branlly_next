@@ -1,0 +1,35 @@
+[workspace]
+members = ["crates/*", "apps/desktop/src-tauri"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+authors = ["Dank-hunters"]
+repository = "https://github.com/Dank-hunters/branlly-next"
+
+[workspace.dependencies]
+async-stream = "0.3.6"
+async-trait = "0.1.89"
+futures-util = "0.3.31"
+reqwest = { version = "0.12.22", default-features = false, features = ["json", "rustls-tls", "stream"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+thiserror = "2.0.12"
+tokio = { version = "1.46.1", features = ["macros", "rt-multi-thread", "time", "sync"] }
+tokio-util = "0.7.15"
+url = { version = "2.5.4", features = ["serde"] }
+wiremock = "0.6.4"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

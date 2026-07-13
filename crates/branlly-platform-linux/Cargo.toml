@@ -1,0 +1,16 @@
+[package]
+name = "branlly-platform-linux"
+description = "Linux implementation of Branlly platform ports"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+branlly-platform = { path = "../branlly-platform" }
