@@ -1,38 +1,104 @@
 # Branlly Next
 
-Réécriture multiplateforme de Branlly, développée Linux-first avec un cœur Rust indépendant du système et une future interface Tauri 2/Svelte.
+Assistant de bureau multiplateforme développé Linux-first avec Rust, Tauri 2, Svelte, TypeScript et Ollama local.
 
-## État
+## Lancer Branlly sous Linux ou WSL
 
-- Phase 0 : workspace, Tauri 2/Svelte, qualité logicielle et CI terminés
-- Phase 1 : cœur métier indépendant de l’OS et mémoire versionnée terminés
-- Phase 2 : client Ollama asynchrone, streaming NDJSON et annulation terminés
-- Phase 3 : contrats système et détection X11/Wayland créés ; intégrations Linux à poursuivre
-- Version Windows WPF de référence conservée séparément dans `../branlly`
-
-## Principes
-
-- aucune dépendance système dans `branlly-core` ;
-- adaptateurs Linux et Windows séparés ;
-- Ollama local, modèle par défaut `qwen2.5:3b` ;
-- aucune opération réseau bloquante sur le thread UI ;
-- chaque bug corrigé par un test de non-régression.
-
-## Vérification
+Depuis l’installation locale actuelle :
 
 ```bash
-cargo fmt --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace
+source "$HOME/.cargo/env"
+cd /mnt/c/Users/dnkhunters/Desktop/branlly-next/apps/desktop
+./web/node_modules/.bin/tauri dev
 ```
 
-## Développement Linux
+La première compilation Tauri/GTK peut prendre plusieurs minutes. Les lancements suivants utilisent le cache Cargo et sont plus rapides.
+
+### Première installation après clonage
 
 ```bash
+git clone git@github.com:Dank-hunters/Branlly_next.git
+cd Branlly_next
+
 sudo ./scripts/install-linux-deps.sh
+source "$HOME/.cargo/env"
+
+cd apps/desktop/web
+corepack pnpm install --frozen-lockfile
+cd ..
+./web/node_modules/.bin/tauri dev
+```
+
+Rust stable avec `rustfmt` et `clippy`, Node.js 22+, Corepack et WSLg ou un bureau Linux graphique sont requis.
+
+## État actuel
+
+- fenêtre Tauri transparente sans décoration ;
+- animation de Branlly avec 32 frames PNG ;
+- cœur métier indépendant du système d’exploitation ;
+- humeur, énergie et historique de conversation ;
+- mémoire versionnée et validée ;
+- client Ollama asynchrone avec streaming et annulation ;
+- modèle local par défaut `qwen2.5:3b` ;
+- détection X11, Wayland et environnement sans affichage ;
+- interface Svelte et communication sécurisée avec Tauri ;
+- contrôles Rust, TypeScript, Svelte et sécurité automatisés.
+
+Les fonctions système non implémentées ne sont jamais annoncées comme disponibles. Les boutons de menu et de chat présents dans l’interface sont actuellement des éléments d’interface sans action système associée.
+
+## Architecture
+
+```text
+branlly-next/
+├── apps/desktop/
+│   ├── src-tauri/                 # application native et commandes Tauri
+│   └── web/                       # interface Svelte/TypeScript
+├── crates/
+│   ├── branlly-core/              # domaine indépendant de l’OS
+│   ├── branlly-ollama/            # client Ollama local
+│   ├── branlly-platform/          # contrats système communs
+│   ├── branlly-platform-linux/    # adaptateur Linux
+│   └── branlly-platform-windows/  # frontière Windows isolée
+├── docs/
+├── scripts/
+└── tests/
+```
+
+## Sécurité
+
+- Ollama limité aux adresses loopback locales ;
+- aucune télémétrie ni IA distante ;
+- aucun plugin shell Tauri ;
+- politique CSP restrictive ;
+- aucune interpolation de commande shell ;
+- `unsafe_code` interdit dans le workspace ;
+- audits `cargo audit` et `pnpm audit --prod` ;
+- secrets, données locales, journaux et fichiers `.env` exclus de Git.
+
+## Vérification complète
+
+Depuis la racine du dépôt :
+
+```bash
 ./scripts/check.sh
 ```
 
-L’interface Tauri transparente utilise les 32 frames de Branlly et interroge le cœur natif pour son état initial.
+Ce script exécute :
 
-Voir [`docs/architecture.md`](docs/architecture.md), [`docs/development.md`](docs/development.md), [`docs/security.md`](docs/security.md) et [`docs/adr`](docs/adr).
+```text
+cargo fmt --check
+cargo clippy avec les avertissements traités comme erreurs
+cargo test
+cargo audit
+pnpm audit
+svelte-check
+vitest
+vite build
+```
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/development.md`](docs/development.md)
+- [`docs/security.md`](docs/security.md)
+- [`docs/adr`](docs/adr)
