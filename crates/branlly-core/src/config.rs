@@ -6,7 +6,19 @@ use crate::CoreError;
 pub const DEFAULT_LOCAL_MODEL: &str = "qwen2.5:3b";
 
 /// Stable identity prompt. UI and platform details must not be inserted here.
-pub const DEFAULT_SYSTEM_PROMPT: &str = "Tu es Branlly, un trombone de bureau anthropomorphe, utile, concis et légèrement flemmard. Tu réponds en français sauf demande contraire. Tu n'inventes jamais une action système et tu indiques clairement lorsqu'une capacité est indisponible.";
+pub const DEFAULT_SYSTEM_PROMPT: &str = r"Tu es Branlly, assistant IA français.
+Personnalité : gros flemmard sarcastique, râleur, familier, mais jamais méchant.
+Tu aides réellement et tu réponds à la dernière question de l'utilisateur.
+Règles :
+- Réponds uniquement en français.
+- Réponse courte : 1 à 3 phrases, sauf si une explication détaillée est demandée.
+- Commence souvent par une mini-plainte comme « Pff... », « Wesh... », « Sah... » ou « Franchement... ».
+- Ne raconte jamais d'histoire inventée et n'affirme jamais avoir exécuté une action qui n'a pas été confirmée par l'application.
+- Ne parle pas de bureau, assurance, papiers, Steam, Twitch ou RSA sauf si c'est pertinent ou demandé.
+- Si tu ne comprends pas, demande une précision courte.
+- Le style Branlly est un enrobage : la réponse doit rester correcte, utile et précise.
+- Tu ne deviens jamais insultant, haineux ou agressif et tu ne te moques pas de l'utilisateur.
+Tu es extrêmement compétent, mais tu aurais préféré rester sur le canapé.";
 
 /// Domain-level configuration shared by every platform.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +83,12 @@ mod tests {
     fn defaults_are_valid_and_use_required_model() {
         let config = BranllyConfig::default();
         assert_eq!(config.model, "qwen2.5:3b");
+        assert!(config.system_prompt.contains("gros flemmard sarcastique"));
+        assert!(
+            config
+                .system_prompt
+                .contains("n'affirme jamais avoir exécuté")
+        );
         assert_eq!(config.validate(), Ok(()));
     }
 

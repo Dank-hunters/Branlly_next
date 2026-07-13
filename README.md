@@ -1,5 +1,7 @@
 # Branlly Next
 
+> **Alpha en cours de portage :** cette branche ne possède pas encore toutes les fonctions de Branlly WPF. La [matrice de parité](docs/parity.md) indique précisément ce qui fonctionne.
+
 Assistant de bureau multiplateforme développé Linux-first avec Rust, Tauri 2, Svelte, TypeScript et Ollama local.
 
 ## Télécharger
@@ -76,6 +78,8 @@ Rust stable avec `rustfmt` et `clippy`, Node.js 22+, Corepack et WSLg ou un bure
 - interface Svelte et communication sécurisée avec Tauri ;
 - chat local fonctionnel avec réponses streamées, historique et annulation ;
 - menu radial avec désactivation explicite des modules indisponibles ;
+- Metro Rush et BlockCraft Lite intégrés au menu des jeux ;
+- personnalité flemmarde historique restaurée dans le prompt local ;
 - déplacement de la fenêtre depuis Branlly ;
 - détection visible de la disponibilité d’Ollama et du modèle ;
 - contrôles Rust, TypeScript, Svelte et sécurité automatisés.
@@ -137,4 +141,5 @@ vite build
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/development.md`](docs/development.md)
 - [`docs/security.md`](docs/security.md)
+- [`docs/parity.md`](docs/parity.md)
 - [`docs/adr`](docs/adr)

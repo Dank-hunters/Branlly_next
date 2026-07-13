@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LogicalSize } from '@tauri-apps/api/dpi'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { onMount } from 'svelte'
   import { nextFrame } from './lib/animation'
@@ -11,7 +12,7 @@
     type ChatEvent,
   } from './lib/backend'
 
-  type View = 'pet' | 'menu' | 'chat'
+  type View = 'pet' | 'menu' | 'chat' | 'games' | 'game'
   type UiMessage = { role: 'user' | 'assistant' | 'error'; content: string }
 
   let frame = 0
@@ -22,6 +23,7 @@
   let input = ''
   let busy = false
   let messages: UiMessage[] = []
+  let activeGame = ''
 
   onMount(() => {
     let active = true
@@ -100,9 +102,24 @@
   async function stopChat() {
     await cancelChat().catch((error: unknown) => console.error('Chat cancellation failed', error))
   }
+
+  async function changeView(next: View) {
+    view = next
+    if (backendReady) {
+      const expanded = next === 'game'
+      await getCurrentWindow()
+        .setSize(new LogicalSize(expanded ? 960 : 390, expanded ? 700 : 390))
+        .catch((error: unknown) => console.error('Window resize failed', error))
+    }
+  }
+
+  async function launchGame(path: string) {
+    activeGame = path
+    await changeView('game')
+  }
 </script>
 
-<main class="desktop-companion" aria-label="Branlly">
+<main class:desktop-companion--expanded={view === 'game'} class="desktop-companion" aria-label="Branlly">
   <section class="status" aria-label="État de Branlly">
     <span class:status__pulse--ready={status.ollamaAvailable} class="status__pulse" aria-hidden="true"></span>
     <span>BRANLLY // {status.ollamaAvailable ? 'LOCAL' : backendReady ? 'OLLAMA OFF' : 'PREVIEW'}</span>
@@ -133,17 +150,17 @@
   {:else if view === 'menu'}
     <section class="radial" aria-label="Menu radial">
       <div class="radial__rings" aria-hidden="true"></div>
-      <button class="radial__item radial__item--top" type="button" on:click={() => (view = 'chat')}>CHAT</button>
+      <button class="radial__item radial__item--top" type="button" on:click={() => changeView('chat')}>CHAT</button>
       <button class="radial__item radial__item--right" type="button" disabled>SYSTÈME</button>
-      <button class="radial__item radial__item--bottom" type="button" disabled>JEUX</button>
+      <button class="radial__item radial__item--bottom" type="button" on:click={() => changeView('games')}>JEUX</button>
       <button class="radial__item radial__item--left" type="button" disabled>APPS</button>
-      <button class="radial__core" type="button" aria-label="Fermer le menu" on:click={() => (view = 'pet')}>B</button>
+      <button class="radial__core" type="button" aria-label="Fermer le menu" on:click={() => changeView('pet')}>B</button>
       <p>MODULES INDISPONIBLES MASQUÉS</p>
     </section>
-  {:else}
+  {:else if view === 'chat'}
     <section class="chat" aria-label="Chat local">
       <header>
-        <button type="button" aria-label="Fermer le chat" on:click={() => (view = 'pet')}>‹</button>
+        <button type="button" aria-label="Fermer le chat" on:click={() => changeView('pet')}>‹</button>
         <div><strong>BRANLLY LINK</strong><small>{status.ollamaAvailable ? 'OLLAMA LOCAL' : 'MOTEUR INDISPONIBLE'}</small></div>
         {#if busy}<button type="button" class="stop" on:click={stopChat}>STOP</button>{/if}
       </header>
@@ -160,6 +177,17 @@
         <input bind:value={input} maxlength="4000" disabled={!status.ollamaAvailable || busy} placeholder={status.ollamaAvailable ? 'Écrire un message…' : 'Ollama indisponible'} aria-label="Message" />
         <button type="submit" disabled={!status.ollamaAvailable || busy || !input.trim()}>ENVOYER</button>
       </form>
+    </section>
+  {:else if view === 'games'}
+    <section class="game-picker" aria-label="Mini-jeux">
+      <header><button type="button" on:click={() => changeView('menu')}>‹</button><strong>DIVERTISSEMENT</strong></header>
+      <button type="button" on:click={() => launchGame('/games/subwaylike/index.html')}><strong>METRO RUSH</strong><span>Course urbaine</span></button>
+      <button type="button" on:click={() => launchGame('/games/blockcraft-lite/index.html')}><strong>BLOCKCRAFT LITE</strong><span>Construction voxel</span></button>
+    </section>
+  {:else}
+    <section class="game-host" aria-label="Mini-jeu actif">
+      <header><button type="button" on:click={() => changeView('games')}>FERMER LE JEU</button></header>
+      <iframe src={activeGame} title="Mini-jeu Branlly"></iframe>
     </section>
   {/if}
 </main>
