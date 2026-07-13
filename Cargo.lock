@@ -269,14 +269,17 @@ name = "branlly-desktop"
 version = "0.1.0"
 dependencies = [
  "branlly-core",
+ "branlly-ollama",
  "branlly-platform",
  "branlly-platform-linux",
  "branlly-platform-windows",
+ "futures-util",
  "log",
  "serde",
  "tauri",
  "tauri-build",
  "tauri-plugin-log",
+ "tokio-util",
 ]
 
 [[package]]
