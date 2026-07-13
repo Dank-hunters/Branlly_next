@@ -1,7 +1,7 @@
 {
   "$schema": "../web/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Branlly Next",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.dankhunters.branlly",
   "build": {
     "frontendDist": "../web/dist",

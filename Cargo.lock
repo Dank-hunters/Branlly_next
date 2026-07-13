@@ -267,7 +267,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -276,7 +276,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "branlly-core",
  "branlly-ollama",
@@ -296,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-ollama"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-stream",
  "branlly-core",
@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-platform"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -323,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-platform-linux"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "branlly-platform",
@@ -331,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-platform-windows"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "branlly-platform",
@@ -339,7 +339,7 @@ dependencies = [
 
 [[package]]
 name = "branlly-storage-json"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atomic-write-file",
  "branlly-core",
