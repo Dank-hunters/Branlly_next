@@ -1,0 +1,83 @@
+name: Release installers
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact: linux-installers
+          - os: windows-latest
+            artifact: windows-installers
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/desktop/web/pnpm-lock.yaml
+      - run: corepack enable
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Install frontend dependencies
+        working-directory: apps/desktop/web
+        run: pnpm install --frozen-lockfile
+      - name: Build native installers
+        working-directory: apps/desktop
+        shell: bash
+        run: ./web/node_modules/.bin/tauri build
+      - name: Collect Linux installers and checksums
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find target/release/bundle -type f \( -name '*.AppImage' -o -name '*.deb' \) -exec cp {} release-assets/ \;
+          cd release-assets
+          for file in *; do sha256sum "$file" > "$file.sha256"; done
+      - name: Collect Windows installers and checksums
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Get-ChildItem target/release/bundle -Recurse -File |
+            Where-Object { $_.Extension -in '.msi', '.exe' } |
+            Copy-Item -Destination release-assets
+          Get-ChildItem release-assets -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Set-Content -NoNewline "$($_.FullName).sha256"
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          generate_release_notes: true
+          files: release-assets/*

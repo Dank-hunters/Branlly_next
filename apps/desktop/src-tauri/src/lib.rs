@@ -22,6 +22,16 @@ use branlly_platform_linux::LinuxPlatform as NativePlatform;
 #[cfg(target_os = "windows")]
 use branlly_platform_windows::WindowsPlatform as NativePlatform;
 
+#[cfg(target_os = "linux")]
+fn native_platform() -> NativePlatform {
+    NativePlatform::detect()
+}
+
+#[cfg(target_os = "windows")]
+fn native_platform() -> NativePlatform {
+    NativePlatform
+}
+
 struct RuntimeState {
     domain: Mutex<BranllyState>,
     platform: NativePlatform,
@@ -199,7 +209,7 @@ fn clear_active_chat(state: &RuntimeState, chat_id: u64) {
 /// # Errors
 ///
 /// Returns a Tauri setup or runtime error instead of panicking.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 pub fn run() -> tauri::Result<()> {
     let domain = BranllyState::new(BranllyConfig::default()).map_err(|error| {
         tauri::Error::Setup((Box::new(error) as Box<dyn std::error::Error>).into())
@@ -214,7 +224,7 @@ pub fn run() -> tauri::Result<()> {
     tauri::Builder::default()
         .manage(RuntimeState {
             domain: Mutex::new(domain),
-            platform: NativePlatform::detect(),
+            platform: native_platform(),
             ollama,
             active_chat: Mutex::new(None),
             next_chat_id: AtomicU64::new(1),
@@ -235,20 +245,4 @@ pub fn run() -> tauri::Result<()> {
             cancel_chat
         ])
         .run(tauri::generate_context!())
-}
-
-/// Windows bootstrap remains isolated until its platform adapter is available.
-///
-/// # Errors
-///
-/// Returns a setup error while the Windows adapter remains intentionally incomplete.
-#[cfg(target_os = "windows")]
-pub fn run() -> tauri::Result<()> {
-    let error = std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "Windows adapter is not implemented yet",
-    );
-    Err(tauri::Error::Setup(
-        (Box::new(error) as Box<dyn std::error::Error>).into(),
-    ))
 }

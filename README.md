@@ -2,7 +2,38 @@
 
 Assistant de bureau multiplateforme développé Linux-first avec Rust, Tauri 2, Svelte, TypeScript et Ollama local.
 
-## Lancer Branlly sous Linux ou WSL
+## Télécharger
+
+Choisissez l’installateur correspondant à votre système dans la page des releases :
+
+| Système | Paquets | Téléchargement |
+|---|---|---|
+| Linux x86_64 | AppImage ou DEB | [Télécharger pour Linux](https://github.com/Dank-hunters/Branlly_next/releases/latest) |
+| Windows 64 bits | MSI ou EXE | [Télécharger pour Windows](https://github.com/Dank-hunters/Branlly_next/releases/latest) |
+
+Chaque paquet est accompagné d’un fichier `.sha256` permettant de vérifier son intégrité.
+
+### Installation automatique Linux
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Dank-hunters/Branlly_next/main/install/linux-install.sh
+less linux-install.sh
+bash linux-install.sh
+```
+
+### Installation automatique Windows
+
+Dans PowerShell :
+
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/Dank-hunters/Branlly_next/main/install/windows-install.ps1 -OutFile windows-install.ps1
+Get-Content .\windows-install.ps1
+powershell -ExecutionPolicy Bypass -File .\windows-install.ps1
+```
+
+Les scripts téléchargent la dernière release officielle, contrôlent son SHA-256 puis lancent l’installation. Voir [`install/README.md`](install/README.md).
+
+## Lancer Branlly depuis les sources sous Linux ou WSL
 
 Depuis l’installation locale actuelle :
 
