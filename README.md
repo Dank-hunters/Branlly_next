@@ -71,7 +71,7 @@ Rust stable avec `rustfmt` et `clippy`, Node.js 22+, Corepack et WSLg ou un bure
 - animation de Branlly avec 32 frames PNG ;
 - cœur métier indépendant du système d’exploitation ;
 - humeur, énergie et historique de conversation ;
-- mémoire versionnée et validée ;
+- mémoire JSON persistante, versionnée, validée et enregistrée atomiquement ;
 - client Ollama asynchrone avec streaming et annulation ;
 - modèle local par défaut `qwen2.5:3b` ;
 - détection X11, Wayland et environnement sans affichage ;

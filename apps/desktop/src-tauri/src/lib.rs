@@ -8,9 +8,10 @@ use std::{
     time::Duration,
 };
 
-use branlly_core::{BranllyConfig, BranllyState, Mood};
+use branlly_core::{BranllyConfig, BranllyState, MemorySnapshot, MemoryStore, Mood};
 use branlly_ollama::OllamaClient;
 use branlly_platform::{Platform, PlatformCapabilities};
+use branlly_storage_json::JsonMemoryStore;
 use futures_util::StreamExt;
 use serde::Serialize;
 use tauri::{State, ipc::Channel};
@@ -38,6 +39,7 @@ struct RuntimeState {
     ollama: OllamaClient,
     active_chat: Mutex<Option<ActiveChat>>,
     next_chat_id: AtomicU64,
+    memory: JsonMemoryStore,
 }
 
 struct ActiveChat {
@@ -108,6 +110,10 @@ async fn chat(
         domain
             .record_user_message(message)
             .map_err(|error| error.to_string())?;
+        state
+            .memory
+            .save(&MemorySnapshot::current(domain.clone()))
+            .map_err(|error| error.to_string())?;
         domain.chat_context()
     };
 
@@ -153,6 +159,10 @@ async fn chat(
         let mut domain = lock_domain(&state)?;
         domain
             .record_assistant_message(response)
+            .map_err(|error| error.to_string())?;
+        state
+            .memory
+            .save(&MemorySnapshot::current(domain.clone()))
             .map_err(|error| error.to_string())?;
     }
     clear_active_chat(&state, chat_id);
@@ -204,6 +214,10 @@ fn clear_active_chat(state: &RuntimeState, chat_id: u64) {
     }
 }
 
+fn setup_error(error: impl std::error::Error + 'static) -> tauri::Error {
+    tauri::Error::Setup((Box::new(error) as Box<dyn std::error::Error>).into())
+}
+
 /// Starts the native desktop process.
 ///
 /// # Errors
@@ -211,9 +225,14 @@ fn clear_active_chat(state: &RuntimeState, chat_id: u64) {
 /// Returns a Tauri setup or runtime error instead of panicking.
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 pub fn run() -> tauri::Result<()> {
-    let domain = BranllyState::new(BranllyConfig::default()).map_err(|error| {
-        tauri::Error::Setup((Box::new(error) as Box<dyn std::error::Error>).into())
-    })?;
+    let data_directory = dirs::data_local_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("branlly-next");
+    let memory = JsonMemoryStore::new(data_directory.join("memory.json"));
+    let domain = match memory.load().map_err(setup_error)? {
+        Some(snapshot) => snapshot.into_state().map_err(setup_error)?,
+        None => BranllyState::new(BranllyConfig::default()).map_err(setup_error)?,
+    };
     let ollama = OllamaClient::new(
         "http://127.0.0.1:11434",
         domain.config().model.clone(),
@@ -228,6 +247,7 @@ pub fn run() -> tauri::Result<()> {
             ollama,
             active_chat: Mutex::new(None),
             next_chat_id: AtomicU64::new(1),
+            memory,
         })
         .setup(|app| {
             if cfg!(debug_assertions) {

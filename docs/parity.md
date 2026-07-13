@@ -14,7 +14,7 @@ La version PowerShell/WPF reste la spécification fonctionnelle. Une fonction n�
 | IA | Ollama `qwen2.5:3b` | ✅ |
 | IA | streaming et annulation | ✅ |
 | IA | personnalité historique | ✅ prompt local |
-| IA | mémoire persistante sur disque | ⬜ |
+| IA | mémoire persistante sur disque | ✅ JSON versionné et écriture atomique |
 | Applications | raccourcis configurables | ⬜ |
 | Applications | fenêtres ouvertes | ⬜ |
 | Applications | activation/fermeture | ⬜ |
