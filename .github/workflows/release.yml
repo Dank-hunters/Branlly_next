@@ -42,9 +42,8 @@ jobs:
         run: |
           set -o pipefail
           if ! ./web/node_modules/.bin/tauri build 2>&1 | tee tauri-build.log; then
-            tail -n 30 tauri-build.log | while IFS= read -r line; do
-              echo "::error::$line"
-            done
+            summary=$(tail -n 60 tauri-build.log | sed -r 's/\x1B\[[0-9;]*[mK]//g' | tr '\n' ' ' | cut -c 1-6000)
+            echo "::error title=Tauri build failed::$summary"
             exit 1
           fi
       - name: Collect Linux installers and checksums
