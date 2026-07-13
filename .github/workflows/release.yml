@@ -39,7 +39,14 @@ jobs:
       - name: Build native installers
         working-directory: apps/desktop
         shell: bash
-        run: ./web/node_modules/.bin/tauri build
+        run: |
+          set -o pipefail
+          if ! ./web/node_modules/.bin/tauri build 2>&1 | tee tauri-build.log; then
+            tail -n 30 tauri-build.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
       - name: Collect Linux installers and checksums
         if: runner.os == 'Linux'
         shell: bash
