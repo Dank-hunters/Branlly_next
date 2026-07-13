@@ -1,12 +1,27 @@
 <script lang="ts">
+  import { getCurrentWindow } from '@tauri-apps/api/window'
   import { onMount } from 'svelte'
   import { nextFrame } from './lib/animation'
-  import { fetchBootstrapStatus, isTauriRuntime, PREVIEW_STATUS } from './lib/backend'
+  import {
+    cancelChat,
+    fetchBootstrapStatus,
+    isTauriRuntime,
+    PREVIEW_STATUS,
+    sendChat,
+    type ChatEvent,
+  } from './lib/backend'
+
+  type View = 'pet' | 'menu' | 'chat'
+  type UiMessage = { role: 'user' | 'assistant' | 'error'; content: string }
 
   let frame = 0
   let paused = false
   let status = PREVIEW_STATUS
   let backendReady = false
+  let view: View = 'pet'
+  let input = ''
+  let busy = false
+  let messages: UiMessage[] = []
 
   onMount(() => {
     let active = true
@@ -37,35 +52,114 @@
   function toggleAnimation() {
     paused = !paused
   }
+
+  function startDragging(event: PointerEvent) {
+    if (backendReady && event.button === 0) {
+      getCurrentWindow().startDragging().catch((error: unknown) =>
+        console.error('Window dragging failed', error),
+      )
+    }
+  }
+
+  function receiveChatEvent(event: ChatEvent) {
+    if (event.type === 'delta') {
+      const copy = [...messages]
+      const last = copy.at(-1)
+      if (last?.role === 'assistant') {
+        copy[copy.length - 1] = { ...last, content: last.content + event.payload }
+        messages = copy
+      }
+    } else if (event.type === 'error') {
+      messages = [...messages, { role: 'error', content: event.payload }]
+    }
+  }
+
+  async function submitChat() {
+    const outgoing = input.trim()
+    if (!outgoing || busy || !status.ollamaAvailable) return
+    input = ''
+    busy = true
+    messages = [
+      ...messages,
+      { role: 'user', content: outgoing },
+      { role: 'assistant', content: '' },
+    ]
+    try {
+      await sendChat(outgoing, receiveChatEvent)
+      status = await fetchBootstrapStatus()
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      if (messages.at(-1)?.role !== 'error') {
+        messages = [...messages, { role: 'error', content: detail }]
+      }
+    } finally {
+      busy = false
+    }
+  }
+
+  async function stopChat() {
+    await cancelChat().catch((error: unknown) => console.error('Chat cancellation failed', error))
+  }
 </script>
 
 <main class="desktop-companion" aria-label="Branlly">
   <section class="status" aria-label="État de Branlly">
-    <span class:status__pulse--ready={backendReady} class="status__pulse" aria-hidden="true"></span>
-    <span>BRANLLY // {backendReady ? 'LOCAL' : 'PREVIEW'}</span>
+    <span class:status__pulse--ready={status.ollamaAvailable} class="status__pulse" aria-hidden="true"></span>
+    <span>BRANLLY // {status.ollamaAvailable ? 'LOCAL' : backendReady ? 'OLLAMA OFF' : 'PREVIEW'}</span>
     <span class="status__model">{status.model.toUpperCase()} · E{status.energy}</span>
   </section>
 
-  <button
-    class="companion"
-    type="button"
-    aria-label={paused ? "Reprendre l'animation de Branlly" : "Mettre l'animation de Branlly en pause"}
-    on:click={toggleAnimation}
-  >
-    <span class="companion__aura" aria-hidden="true"></span>
-    <img src={`/assets/branlly/frame-${frame}.png`} alt="Branlly, compagnon trombone" width="182" height="180" />
-  </button>
-
-  <nav class="quick-actions" aria-label="Actions rapides">
-    <button type="button" aria-label="Ouvrir le menu radial">
-      <span aria-hidden="true">◉</span>
-      MENU
+  {#if view === 'pet'}
+    <button
+      class="companion"
+      type="button"
+      aria-label={paused ? "Reprendre l'animation de Branlly" : "Mettre l'animation de Branlly en pause"}
+      on:pointerdown={startDragging}
+      on:click={toggleAnimation}
+    >
+      <span class="companion__aura" aria-hidden="true"></span>
+      <img src={`/assets/branlly/frame-${frame}.png`} alt="Branlly, compagnon trombone" width="182" height="180" />
     </button>
-    <button type="button" aria-label="Ouvrir le chat local">
-      <span aria-hidden="true">⌁</span>
-      CHAT
-    </button>
-  </nav>
 
-  <p class="hint">CLIC : PAUSE · GLISSER : DÉPLACER</p>
+    <nav class="quick-actions" aria-label="Actions rapides">
+      <button type="button" aria-label="Ouvrir le menu radial" on:click={() => (view = 'menu')}>
+        <span aria-hidden="true">◉</span> MENU
+      </button>
+      <button type="button" aria-label="Ouvrir le chat local" on:click={() => (view = 'chat')}>
+        <span aria-hidden="true">⌁</span> CHAT
+      </button>
+    </nav>
+    <p class="hint">CLIC : PAUSE · GLISSER : DÉPLACER</p>
+  {:else if view === 'menu'}
+    <section class="radial" aria-label="Menu radial">
+      <div class="radial__rings" aria-hidden="true"></div>
+      <button class="radial__item radial__item--top" type="button" on:click={() => (view = 'chat')}>CHAT</button>
+      <button class="radial__item radial__item--right" type="button" disabled>SYSTÈME</button>
+      <button class="radial__item radial__item--bottom" type="button" disabled>JEUX</button>
+      <button class="radial__item radial__item--left" type="button" disabled>APPS</button>
+      <button class="radial__core" type="button" aria-label="Fermer le menu" on:click={() => (view = 'pet')}>B</button>
+      <p>MODULES INDISPONIBLES MASQUÉS</p>
+    </section>
+  {:else}
+    <section class="chat" aria-label="Chat local">
+      <header>
+        <button type="button" aria-label="Fermer le chat" on:click={() => (view = 'pet')}>‹</button>
+        <div><strong>BRANLLY LINK</strong><small>{status.ollamaAvailable ? 'OLLAMA LOCAL' : 'MOTEUR INDISPONIBLE'}</small></div>
+        {#if busy}<button type="button" class="stop" on:click={stopChat}>STOP</button>{/if}
+      </header>
+      <div class="chat__history" aria-live="polite">
+        {#if messages.length === 0}
+          <p class="empty">Hmm. Tu avais besoin de quelque chose ?</p>
+        {/if}
+        {#each messages as message}
+          {#if message.content}<p class:assistant={message.role === 'assistant'} class:user={message.role === 'user'} class:error={message.role === 'error'}>{message.content}</p>{/if}
+        {/each}
+        {#if busy && messages.at(-1)?.content === ''}<p class="thinking">ANALYSE…</p>{/if}
+      </div>
+      <form on:submit|preventDefault={submitChat}>
+        <input bind:value={input} maxlength="4000" disabled={!status.ollamaAvailable || busy} placeholder={status.ollamaAvailable ? 'Écrire un message…' : 'Ollama indisponible'} aria-label="Message" />
+        <button type="submit" disabled={!status.ollamaAvailable || busy || !input.trim()}>ENVOYER</button>
+      </form>
+    </section>
+  {/if}
 </main>

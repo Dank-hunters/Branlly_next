@@ -20,11 +20,14 @@ tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 branlly-core = { path = "../../../crates/branlly-core" }
+branlly-ollama = { path = "../../../crates/branlly-ollama" }
 branlly-platform = { path = "../../../crates/branlly-platform" }
+futures-util.workspace = true
 log = "0.4.27"
 serde.workspace = true
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2.7.0"
+tokio-util.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 branlly-platform-linux = { path = "../../../crates/branlly-platform-linux" }

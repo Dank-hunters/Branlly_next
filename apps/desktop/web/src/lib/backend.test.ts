@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { fetchBootstrapStatus, isTauriRuntime, PREVIEW_STATUS } from './backend'
+import { fetchBootstrapStatus, isTauriRuntime, PREVIEW_STATUS, validateChatMessage } from './backend'
 
 describe('native bootstrap contract', () => {
   it('uses the exact Tauri command and validates its response', async () => {
@@ -14,6 +14,12 @@ describe('native bootstrap contract', () => {
     const invoke = vi.fn().mockResolvedValue({ ...PREVIEW_STATUS, energy: 101 })
 
     await expect(fetchBootstrapStatus(invoke)).rejects.toThrow(/invalid Branlly status/i)
+  })
+
+  it('normalizes chat input and rejects invalid sizes before IPC', () => {
+    expect(validateChatMessage('  Bonjour  ')).toBe('Bonjour')
+    expect(() => validateChatMessage('   ')).toThrow(RangeError)
+    expect(() => validateChatMessage('x'.repeat(4_001))).toThrow(RangeError)
   })
 
   it('detects native runtime without user-agent heuristics', () => {

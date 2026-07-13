@@ -7,6 +7,7 @@ Assistant de bureau multiplateforme développé Linux-first avec Rust, Tauri 2, 
 Depuis l’installation locale actuelle :
 
 ```bash
+ollama pull qwen2.5:3b
 source "$HOME/.cargo/env"
 cd /mnt/c/Users/dnkhunters/Desktop/branlly-next/apps/desktop
 ./web/node_modules/.bin/tauri dev
@@ -42,9 +43,13 @@ Rust stable avec `rustfmt` et `clippy`, Node.js 22+, Corepack et WSLg ou un bure
 - modèle local par défaut `qwen2.5:3b` ;
 - détection X11, Wayland et environnement sans affichage ;
 - interface Svelte et communication sécurisée avec Tauri ;
+- chat local fonctionnel avec réponses streamées, historique et annulation ;
+- menu radial avec désactivation explicite des modules indisponibles ;
+- déplacement de la fenêtre depuis Branlly ;
+- détection visible de la disponibilité d’Ollama et du modèle ;
 - contrôles Rust, TypeScript, Svelte et sécurité automatisés.
 
-Les fonctions système non implémentées ne sont jamais annoncées comme disponibles. Les boutons de menu et de chat présents dans l’interface sont actuellement des éléments d’interface sans action système associée.
+Les fonctions système non implémentées ne sont jamais annoncées comme disponibles. Le chat nécessite une instance Ollama Linux joignable sur `127.0.0.1:11434` avec `qwen2.5:3b` installé.
 
 ## Architecture
 
