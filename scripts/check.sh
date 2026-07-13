@@ -8,9 +8,11 @@ cd "$ROOT"
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-targets
+cargo audit
 
 cd "$ROOT/apps/desktop/web"
 corepack pnpm install --frozen-lockfile
+corepack pnpm audit --prod
 corepack pnpm check
 corepack pnpm test
 corepack pnpm build

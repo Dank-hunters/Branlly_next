@@ -9,7 +9,7 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio_util::sync::CancellationToken;
-use url::Url;
+use url::{Host, Url};
 
 /// Errors returned by configuration, transport, protocol, or cancellation.
 #[derive(Debug, Error)]
@@ -95,9 +95,22 @@ impl OllamaClient {
                 "endpoint must use http or https".to_owned(),
             ));
         }
-        if base_url.host_str().is_none() {
+        let is_loopback = match base_url.host() {
+            Some(Host::Domain(domain)) => domain
+                .trim_end_matches('.')
+                .eq_ignore_ascii_case("localhost"),
+            Some(Host::Ipv4(address)) => address.is_loopback(),
+            Some(Host::Ipv6(address)) => address.is_loopback(),
+            None => false,
+        };
+        if !is_loopback {
             return Err(OllamaError::Configuration(
-                "endpoint must include a host".to_owned(),
+                "endpoint must target localhost or a loopback IP".to_owned(),
+            ));
+        }
+        if !base_url.username().is_empty() || base_url.password().is_some() {
+            return Err(OllamaError::Configuration(
+                "credentials are not allowed in the Ollama endpoint".to_owned(),
             ));
         }
         if !base_url.path().ends_with('/') {
@@ -196,6 +209,7 @@ impl OllamaClient {
                     }
                 }
             }
+            #[allow(clippy::collapsible_if)] // Let-chains do not expand safely inside `try_stream!`.
             if buffer.iter().any(|byte| !byte.is_ascii_whitespace()) {
                 if let Some(delta) = decode_frame(&buffer)? {
                     yield delta;
@@ -252,8 +266,17 @@ mod unit_tests {
     use super::*;
 
     #[test]
-    fn rejects_non_http_endpoint_and_blank_model() {
+    fn rejects_non_local_endpoint_credentials_and_blank_model() {
         assert!(OllamaClient::new("file:///tmp/socket", "qwen", Duration::from_secs(1)).is_err());
+        assert!(OllamaClient::new("https://example.com", "qwen", Duration::from_secs(1)).is_err());
+        assert!(
+            OllamaClient::new(
+                "http://user:secret@localhost:11434",
+                "qwen",
+                Duration::from_secs(1)
+            )
+            .is_err()
+        );
         assert!(OllamaClient::new("http://localhost:11434", " ", Duration::from_secs(1)).is_err());
     }
 

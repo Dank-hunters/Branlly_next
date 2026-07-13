@@ -35,4 +35,4 @@ sudo ./scripts/install-linux-deps.sh
 
 L’interface Tauri transparente utilise les 32 frames de Branlly et interroge le cœur natif pour son état initial.
 
-Voir [`docs/architecture.md`](docs/architecture.md), [`docs/development.md`](docs/development.md) et [`docs/adr`](docs/adr).
+Voir [`docs/architecture.md`](docs/architecture.md), [`docs/development.md`](docs/development.md), [`docs/security.md`](docs/security.md) et [`docs/adr`](docs/adr).
