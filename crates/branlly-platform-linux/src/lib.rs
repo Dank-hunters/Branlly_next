@@ -68,12 +68,13 @@ impl Platform for LinuxPlatform {
     fn capabilities(&self) -> PlatformCapabilities {
         let x11 = self.session == DesktopSession::X11;
         PlatformCapabilities {
-            can_list_windows: x11,
-            can_focus_windows: x11,
+            can_list_windows: false,
+            can_focus_windows: false,
             can_position_overlay: x11,
-            can_follow_pointer: x11,
-            can_query_network: true,
-            can_query_bluetooth: true,
+            can_follow_pointer: false,
+            // Never advertise a service before its adapter is operational.
+            can_query_network: false,
+            can_query_bluetooth: false,
         }
     }
 
@@ -126,12 +127,14 @@ mod tests {
     }
 
     #[test]
-    fn x11_enables_global_window_capabilities() {
+    fn x11_only_enables_the_capability_already_provided_by_tauri() {
         let platform = LinuxPlatform::from_environment(Some("x11"), None, Some(":0"));
         let capabilities = platform.capabilities();
         assert_eq!(platform.session(), DesktopSession::X11);
-        assert!(capabilities.can_list_windows);
-        assert!(capabilities.can_focus_windows);
+        assert!(capabilities.can_position_overlay);
+        assert!(!capabilities.can_list_windows);
+        assert!(!capabilities.can_focus_windows);
+        assert!(!capabilities.can_follow_pointer);
     }
 
     #[test]
@@ -139,5 +142,13 @@ mod tests {
         let platform = LinuxPlatform::from_environment(None, None, None);
         assert_eq!(platform.session(), DesktopSession::Unknown);
         assert!(!platform.capabilities().can_position_overlay);
+    }
+
+    #[test]
+    fn unimplemented_services_are_never_advertised() {
+        let capabilities =
+            LinuxPlatform::from_environment(Some("x11"), None, Some(":0")).capabilities();
+        assert!(!capabilities.can_query_network);
+        assert!(!capabilities.can_query_bluetooth);
     }
 }
