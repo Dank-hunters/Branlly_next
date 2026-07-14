@@ -75,6 +75,15 @@ pub struct PlatformCapabilities {
     pub can_query_bluetooth: bool,
 }
 
+/// Absolute pointer position in physical desktop pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PointerPosition {
+    /// Horizontal desktop coordinate.
+    pub x: i32,
+    /// Vertical desktop coordinate.
+    pub y: i32,
+}
+
 /// Typed adapter failures suitable for UI presentation and telemetry.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum PlatformError {
@@ -137,6 +146,18 @@ pub trait Platform: Send + Sync {
     ///
     /// Returns a typed capability, permission, or Bluetooth service error.
     async fn bluetooth_devices(&self) -> Result<Vec<DeviceInfo>, PlatformError>;
+    /// Lists connected physical peripherals exposed by the operating system.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed capability or platform service error.
+    async fn connected_devices(&self) -> Result<Vec<DeviceInfo>, PlatformError>;
+    /// Returns the global pointer position when the desktop protocol permits it.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed capability or platform service error.
+    async fn pointer_position(&self) -> Result<PointerPosition, PlatformError>;
 }
 
 #[cfg(test)]

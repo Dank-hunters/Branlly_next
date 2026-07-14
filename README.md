@@ -77,7 +77,14 @@ Rust stable avec `rustfmt` et `clippy`, Node.js 22+, Corepack et WSLg ou un bure
 - détection X11, Wayland et environnement sans affichage ;
 - interface Svelte et communication sécurisée avec Tauri ;
 - chat local fonctionnel avec réponses streamées, historique et annulation ;
-- menu radial avec désactivation explicite des modules indisponibles ;
+- menu radial ouvert directement en cliquant sur Branlly, sans cadre visible ;
+- bouton de fermeture et déplacement par appui prolongé ;
+- sous-menus applications, fenêtres, système, recherche, jeux et chat ;
+- raccourcis Discord, Steam, Twitch, YouTube Music, Stremio et Disney+ ;
+- liste, activation et fermeture des fenêtres sous Windows et X11 ;
+- réseau, Bluetooth, nettoyage temporaire et suivi facultatif du curseur ;
+- recherche Wikipédia française ;
+- sons HUD synthétisés localement ;
 - Metro Rush et BlockCraft Lite intégrés au menu des jeux ;
 - personnalité flemmarde historique restaurée dans le prompt local ;
 - déplacement de la fenêtre depuis Branlly ;

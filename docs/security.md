@@ -15,6 +15,7 @@ Branlly traite comme non fiables :
 - Ollama est limité à `localhost`, IPv4 loopback ou IPv6 loopback ;
 - les URL Ollama contenant des identifiants sont refusées ;
 - aucun service d’IA distant ni télémétrie n’est utilisé ;
+- la seule requête Internet applicative est l’API Wikipédia française avec URL fixe, texte borné à 120 caractères et timeout ;
 - aucune commande n’est interpolée dans un shell ;
 - les arguments d’applications restent des tableaux structurés ;
 - le streaming NDJSON est validé image par image et borné par le timeout HTTP ;
@@ -23,7 +24,7 @@ Branlly traite comme non fiables :
 - `unsafe_code` est interdit dans les crates du workspace ;
 - Tauri n’expose actuellement qu’une commande de lecture `bootstrap_status` ;
 - aucun plugin shell, filesystem ou HTTP Tauri n’est activé ;
-- la CSP interdit les scripts, images, polices et connexions externes ;
+- la CSP interdit au frontend les scripts, images, polices et connexions externes ; les appels Wikipédia passent par une commande native bornée ;
 - les secrets, `.env`, journaux, données et artefacts sont ignorés par Git ;
 - `cargo audit` et `pnpm audit --prod` font partie des contrôles locaux et CI.
 

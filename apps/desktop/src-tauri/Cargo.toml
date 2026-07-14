@@ -26,7 +26,9 @@ branlly-storage-json = { path = "../../../crates/branlly-storage-json" }
 dirs = "6.0.0"
 futures-util.workspace = true
 log = "0.4.27"
+reqwest.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2.7.0"
 tokio-util.workspace = true

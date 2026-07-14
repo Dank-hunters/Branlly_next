@@ -21,6 +21,32 @@ export interface BootstrapStatus {
 
 export type InvokeBackend = <T>(command: string, args?: Record<string, unknown>) => Promise<T>
 
+export interface WindowInfo {
+  id: string
+  title: string
+  applicationId: string | null
+  processId: number | null
+}
+
+export interface DeviceInfo {
+  id: string
+  name: string
+  connected: boolean
+  paired: boolean
+}
+
+export interface SystemSnapshot {
+  network: 'offline' | 'local' | 'online' | 'unknown'
+  bluetoothDevices: DeviceInfo[]
+  connectedDevices: DeviceInfo[]
+}
+
+export interface WikiResult {
+  title: string
+  description: string
+  url: string
+}
+
 export type ChatEvent =
   | { type: 'delta'; payload: string }
   | { type: 'complete' }
@@ -70,6 +96,38 @@ export async function sendChat(
 
 export async function cancelChat(): Promise<void> {
   await invoke('cancel_chat')
+}
+
+export async function listOpenWindows(): Promise<WindowInfo[]> {
+  return invoke<WindowInfo[]>('list_windows')
+}
+
+export async function focusOpenWindow(id: string): Promise<void> {
+  await invoke('focus_window', { id })
+}
+
+export async function closeOpenWindow(id: string): Promise<void> {
+  await invoke('close_window', { id })
+}
+
+export async function getSystemSnapshot(): Promise<SystemSnapshot> {
+  return invoke<SystemSnapshot>('system_snapshot')
+}
+
+export async function launchShortcut(id: string): Promise<void> {
+  await invoke('launch_shortcut', { id })
+}
+
+export async function searchWikipedia(query: string): Promise<WikiResult[]> {
+  return invoke<WikiResult[]>('wiki_search', { query })
+}
+
+export async function getPointerPosition(): Promise<{ x: number; y: number }> {
+  return invoke<{ x: number; y: number }>('pointer_position')
+}
+
+export async function cleanupTemporaryFiles(): Promise<{ removedEntries: number }> {
+  return invoke<{ removedEntries: number }>('cleanup_temp')
 }
 
 export function isTauriRuntime(target: object = globalThis): boolean {

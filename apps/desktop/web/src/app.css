@@ -226,6 +226,45 @@ button:focus-visible {
 .game-host header { justify-content: flex-end; }
 .game-host iframe { width: 100%; height: 100%; border: 1px solid var(--cyan-muted); background: #020617; }
 
+.module-panel {
+  display: grid;
+  width: 350px;
+  max-height: 320px;
+  gap: 9px;
+  margin-top: 48px;
+  padding: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--cyan-muted);
+  background: rgba(0, 8, 20, 0.95);
+  box-shadow: inset 0 0 25px rgba(56, 189, 248, 0.08);
+}
+.module-panel header { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.module-panel header strong { flex: 1; text-align: left; font-size: 11px; letter-spacing: .1em; }
+.module-panel header button,
+.wide-action,
+.wiki-form button { border: 1px solid var(--cyan-muted); background: rgba(14,165,233,.12); color: var(--cyan-bright); padding: 7px 10px; cursor: pointer; }
+.module-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+.module-grid button { min-height: 42px; border: 1px solid rgba(56,189,248,.35); background: rgba(2,22,42,.8); color: var(--cyan-bright); font-size: 9px; cursor: pointer; }
+.module-grid button:hover,.wide-action:hover { border-color: var(--cyan-bright); }
+.wide-action { width: 100%; font-size: 9px; }
+.module-error { margin: 0; color: #fca5a5; font-size: 8px; overflow-wrap: anywhere; }
+.window-list,.device-list,.wiki-results { display: grid; gap: 6px; overflow-y: auto; min-height: 0; }
+.window-list > div { display: grid; grid-template-columns: 1fr 34px; gap: 5px; }
+.window-list button { min-width: 0; border: 1px solid rgba(56,189,248,.3); background: rgba(2,20,38,.8); color: var(--cyan-bright); text-align: left; padding: 6px; cursor: pointer; }
+.window-list button strong,.window-list button span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.window-list .close-window { color: #fca5a5; text-align: center; font-size: 17px; }
+.system-card { display: flex; justify-content: space-between; padding: 14px; border: 1px solid rgba(56,189,248,.35); }
+.system-card span,.module-panel h3 { color: rgba(125,211,252,.6); font-size: 8px; }
+.module-panel h3 { margin: 3px 0 0; }
+.device-list p { display: flex; justify-content: space-between; margin: 0; padding: 7px; border-bottom: 1px solid rgba(56,189,248,.18); font-size: 9px; }
+.device-list p strong { color: #67e8f9; font-size: 7px; }
+.wiki-form { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.wiki-form input { min-width: 0; border: 1px solid var(--cyan-muted); background: #020817; color: white; padding: 8px; }
+.wiki-results a { display: grid; gap: 3px; padding: 7px; border: 1px solid rgba(56,189,248,.25); color: var(--cyan-bright); text-decoration: none; text-align: left; }
+.wiki-results a strong { font-size: 9px; }
+.wiki-results a span { color: rgba(223,248,255,.65); font: 9px/1.3 system-ui,sans-serif; }
+
 .radial {
   position: relative;
   display: grid;
@@ -236,6 +275,8 @@ button:focus-visible {
   border-radius: 50%;
   background: radial-gradient(circle, rgba(3, 25, 47, 0.95), rgba(0, 7, 18, 0.92) 62%, transparent 63%);
 }
+
+.radial__telemetry { position: absolute; top: 8px; color: rgba(125,211,252,.62); font-size: 7px; letter-spacing: .1em; }
 
 .radial__rings {
   position: absolute;
@@ -257,7 +298,8 @@ button:focus-visible {
 .radial__rings::after { inset: 70px; border-style: solid; }
 
 .radial__item,
-.radial__core {
+.radial__core,
+.radial__exit {
   position: absolute;
   display: grid;
   place-items: center;
@@ -276,6 +318,7 @@ button:focus-visible {
 .radial__item--bottom { bottom: 24px; }
 .radial__item--left { left: 24px; }
 .radial__core { width: 76px; height: 76px; font-size: 24px; font-weight: 800; background: #bff5ff; color: #031525; }
+.radial__exit { top: 38px; left: 38px; width: 34px; height: 34px; border-color: #ef4444; color: #fecaca; font-size: 20px; background: rgba(69,10,10,.92); }
 .radial > p { position: absolute; bottom: -2px; margin: 0; color: rgba(125, 211, 252, 0.46); font-size: 7px; }
 
 .chat {
