@@ -49,7 +49,7 @@
       { label: 'TWITCH', action: 'shortcut:twitch', color: '#9146ff' },
       { label: 'STREMIO', action: 'shortcut:stremio', color: '#6c5ce7' },
       { label: 'DISNEY+', action: 'shortcut:disney', color: '#113ccf' },
-      { label: 'FENÊTRES', action: 'windows' }, { label: 'RETOUR', action: 'menu:main' },
+      { label: 'RETOUR', action: 'menu:main' },
     ]},
     games: { title: 'JEUX', description: 'Mini-jeux et bordel interactif', items: [
       { label: 'TOUS', action: 'games' }, { label: 'METRO', action: 'game:metro' },
@@ -339,6 +339,7 @@
       on:pointerdown={beginDragging}
       on:pointerup={endDragging}
       on:pointercancel={endDragging}
+      on:contextmenu|preventDefault={showWindows}
       on:click={openMainMenu}
     >
       <span class="companion__aura" aria-hidden="true"></span>
