@@ -49,3 +49,11 @@ EOF
 chmod 0644 "$DESKTOP_DIR/branlly-next.desktop"
 
 echo "Branlly Next est installé. Lancez 'branlly-next' ou utilisez le menu des applications."
+missing=()
+for command in wmctrl xdotool nmcli bluetoothctl lsusb; do
+  command -v "$command" >/dev/null || missing+=("$command")
+done
+if (( ${#missing[@]} > 0 )); then
+  echo "Fonctions système optionnelles absentes : ${missing[*]}"
+  echo "Sur Ubuntu/Debian : sudo apt install wmctrl xdotool network-manager bluez usbutils"
+fi
