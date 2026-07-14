@@ -1,6 +1,6 @@
 # Branlly Next
 
-> **Version 0.3 :** les fonctions de Branlly WPF sont portées sur le socle multiplateforme. Pong et Desktop Whip sont volontairement exclus. Consultez la [matrice de parité](docs/parity.md).
+> **Version 0.4 :** les fonctions de Branlly WPF sont portées sur le socle multiplateforme. Pong et Desktop Whip sont volontairement exclus. Consultez la [matrice de parité](docs/parity.md).
 
 Assistant de bureau multiplateforme développé Linux-first avec Rust, Tauri 2, Svelte, TypeScript et Ollama local.
 
@@ -79,7 +79,8 @@ Rust stable avec `rustfmt` et `clippy`, Node.js 22+, Corepack et WSLg ou un bure
 - chat local fonctionnel avec réponses streamées, historique et annulation ;
 - menu radial ouvert directement en cliquant sur Branlly, sans cadre visible ;
 - bouton de fermeture et déplacement par appui prolongé ;
-- sous-menus applications, fenêtres, système, recherche, jeux et chat ;
+- hiérarchie historique restaurée : IA, Apps, Jeux, PC, Branlly, Redémarrer et Quitter ;
+- sous-menus IA, Applications, Jeux, Réseau, Nettoyage, Branlly et Apparence identiques à la version WPF ;
 - raccourcis Discord, Steam, Twitch, YouTube Music, Stremio et Disney+ ;
 - liste, activation et fermeture des fenêtres sous Windows et X11 ;
 - réseau, Bluetooth, nettoyage temporaire et suivi facultatif du curseur ;

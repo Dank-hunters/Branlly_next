@@ -388,19 +388,42 @@ async fn wiki_search(query: String) -> Result<Vec<WikiResult>, String> {
 
 #[cfg(target_os = "linux")]
 fn shortcut_specification(id: &str) -> Option<AppLaunchSpec> {
-    let target = shortcut_target(id)?;
+    let (identifier, arguments): (&str, Vec<String>) = match id {
+        "task-manager" => ("gnome-system-monitor", vec![]),
+        "wifi-settings" | "network-adapters" => ("nm-connection-editor", vec![]),
+        "bluetooth-settings" => ("blueman-manager", vec![]),
+        "disk-cleanup" => ("baobab", vec![]),
+        "recycle-bin" => ("gio", vec!["trash".to_owned(), "--empty".to_owned()]),
+        _ => ("xdg-open", vec![shortcut_target(id)?.to_owned()]),
+    };
     Some(AppLaunchSpec {
-        identifier: "xdg-open".to_owned(),
-        arguments: vec![target.to_owned()],
+        identifier: identifier.to_owned(),
+        arguments,
     })
 }
 
 #[cfg(target_os = "windows")]
 fn shortcut_specification(id: &str) -> Option<AppLaunchSpec> {
-    let target = shortcut_target(id)?;
+    let (identifier, arguments): (&str, Vec<String>) = match id {
+        "task-manager" => ("taskmgr.exe", vec![]),
+        "wifi-settings" => ("explorer.exe", vec!["ms-settings:network-wifi".to_owned()]),
+        "bluetooth-settings" => ("explorer.exe", vec!["ms-settings:bluetooth".to_owned()]),
+        "network-adapters" => ("control.exe", vec!["ncpa.cpl".to_owned()]),
+        "disk-cleanup" => ("cleanmgr.exe", vec![]),
+        "recycle-bin" => (
+            "powershell.exe",
+            vec![
+                "-NoProfile".to_owned(),
+                "-NonInteractive".to_owned(),
+                "-Command".to_owned(),
+                "Clear-RecycleBin -Force".to_owned(),
+            ],
+        ),
+        _ => ("explorer.exe", vec![shortcut_target(id)?.to_owned()]),
+    };
     Some(AppLaunchSpec {
-        identifier: "explorer.exe".to_owned(),
-        arguments: vec![target.to_owned()],
+        identifier: identifier.to_owned(),
+        arguments,
     })
 }
 
