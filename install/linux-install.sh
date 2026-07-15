@@ -16,7 +16,10 @@ if [[ $(uname -m) != x86_64 ]]; then
   exit 1
 fi
 for command in curl sha256sum; do
-  command -v "$command" >/dev/null || { echo "Commande requise absente : $command" >&2; exit 1; }
+  command -v "$command" >/dev/null || {
+    echo "Commande requise absente : $command" >&2
+    exit 1
+  }
 done
 
 release_json=$(curl --fail --silent --show-error --location "$API")
@@ -32,11 +35,16 @@ trap 'rm -rf "$temporary"' EXIT
 filename=$(basename "$url")
 curl --fail --show-error --location "$url" --output "$temporary/$filename"
 curl --fail --show-error --location "$url.sha256" --output "$temporary/$filename.sha256"
-(cd "$temporary" && sha256sum --check "$filename.sha256")
+expected_hash=$(awk '{print tolower($1); exit}' "$temporary/$filename.sha256")
+actual_hash=$(sha256sum "$temporary/$filename" | awk '{print tolower($1)}')
+if [[ -z "$expected_hash" || "$actual_hash" != "$expected_hash" ]]; then
+  echo "Échec de la vérification SHA-256 de l'AppImage." >&2
+  exit 1
+fi
 
 install -m 0755 "$temporary/$filename" "$INSTALL_DIR/branlly-next.AppImage"
 ln -sfn "$INSTALL_DIR/branlly-next.AppImage" "$BIN_DIR/branlly-next"
-cat > "$DESKTOP_DIR/branlly-next.desktop" <<EOF
+cat >"$DESKTOP_DIR/branlly-next.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Branlly Next
@@ -53,7 +61,7 @@ missing=()
 for command in wmctrl xdotool nmcli bluetoothctl lsusb; do
   command -v "$command" >/dev/null || missing+=("$command")
 done
-if (( ${#missing[@]} > 0 )); then
+if ((${#missing[@]} > 0)); then
   echo "Fonctions système optionnelles absentes : ${missing[*]}"
   echo "Sur Ubuntu/Debian : sudo apt install wmctrl xdotool network-manager bluez usbutils"
 fi
