@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{BranllyConfig, CoreError, Message, Role};
+use crate::{BranllyConfig, CoreError, LaunchItem, Message, Role};
 
 /// Current emotional presentation. It has no platform dependency.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +26,10 @@ pub struct BranllyState {
     mood: Mood,
     energy: u8,
     conversation: Vec<Message>,
+    #[serde(default)]
+    launch_items: Vec<LaunchItem>,
+    #[serde(default)]
+    launcher_initialized: bool,
 }
 
 impl BranllyState {
@@ -42,6 +46,8 @@ impl BranllyState {
             mood: Mood::Neutral,
             energy,
             conversation: Vec::new(),
+            launch_items: Vec::new(),
+            launcher_initialized: false,
         })
     }
 
@@ -60,6 +66,24 @@ impl BranllyState {
         if self.conversation.len() > self.config.history_limit {
             return Err(CoreError::InvalidConfiguration(
                 "persisted conversation exceeds history limit".to_owned(),
+            ));
+        }
+        if self
+            .launch_items
+            .iter()
+            .any(|item| item.validate().is_err())
+            || self
+                .launch_items
+                .windows(2)
+                .any(|pair| pair[0].order >= pair[1].order)
+            || self.launch_items.iter().enumerate().any(|(index, item)| {
+                self.launch_items[..index]
+                    .iter()
+                    .any(|other| other.id == item.id)
+            })
+        {
+            return Err(CoreError::InvalidConfiguration(
+                "persisted launcher items are invalid".to_owned(),
             ));
         }
         if self
@@ -96,6 +120,47 @@ impl BranllyState {
     #[must_use]
     pub fn conversation(&self) -> &[Message] {
         &self.conversation
+    }
+
+    /// Returns launcher entries in stable display order.
+    #[must_use]
+    pub fn launch_items(&self) -> &[LaunchItem] {
+        &self.launch_items
+    }
+
+    /// Replaces launcher entries after validation and stable ordering.
+    /// Whether the default launcher migration was completed.
+    #[must_use]
+    pub const fn launcher_initialized(&self) -> bool {
+        self.launcher_initialized
+    }
+
+    /// Replaces launcher entries after validation and stable ordering.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CoreError::InvalidConfiguration`] for duplicate or invalid entries, or when the
+    /// item count cannot be represented by the persisted ordering type.
+    pub fn set_launch_items(&mut self, mut items: Vec<LaunchItem>) -> Result<(), CoreError> {
+        items.sort_by_key(|item| item.order);
+        for (index, item) in items.iter_mut().enumerate() {
+            item.order = u32::try_from(index).map_err(|_| {
+                CoreError::InvalidConfiguration("too many launcher items".to_owned())
+            })?;
+            item.validate()?;
+        }
+        if items
+            .iter()
+            .enumerate()
+            .any(|(index, item)| items[..index].iter().any(|other| other.id == item.id))
+        {
+            return Err(CoreError::InvalidConfiguration(
+                "duplicate launcher item".to_owned(),
+            ));
+        }
+        self.launch_items = items;
+        self.launcher_initialized = true;
+        Ok(())
     }
 
     /// Produces the complete request context, including the system prompt.
@@ -179,6 +244,26 @@ mod tests {
             Ok(state) => state,
             Err(error) => unreachable!("test configuration must be valid: {error}"),
         }
+    }
+
+    #[test]
+    fn launcher_items_are_stable_and_reject_duplicates() {
+        let mut state = state_with_limit(4);
+        let item = LaunchItem {
+            id: "firefox".to_owned(),
+            kind: crate::LaunchItemKind::Application,
+            name: "Firefox".to_owned(),
+            icon: None,
+            order: 9,
+            platform: None,
+            launch: crate::LaunchConfiguration::Application {
+                identifier: "firefox".to_owned(),
+                arguments: vec![],
+            },
+        };
+        assert!(state.set_launch_items(vec![item.clone()]).is_ok());
+        assert_eq!(state.launch_items()[0].order, 0);
+        assert!(state.set_launch_items(vec![item.clone(), item]).is_err());
     }
 
     #[test]

@@ -8,11 +8,14 @@ use std::{
     time::Duration,
 };
 
-use branlly_core::{BranllyConfig, BranllyState, MemorySnapshot, MemoryStore, Mood};
+use branlly_core::{
+    BranllyConfig, BranllyState, LaunchConfiguration, LaunchItem, LaunchItemKind, MemorySnapshot,
+    MemoryStore, Mood,
+};
 use branlly_ollama::OllamaClient;
 use branlly_platform::{
-    AppLaunchSpec, DeviceInfo, NetworkStatus, Platform, PlatformCapabilities, PointerPosition,
-    WindowId, WindowInfo,
+    AppLaunchSpec, DeviceInfo, DiscoveredApplication, NetworkStatus, Platform,
+    PlatformCapabilities, PointerPosition, WindowId, WindowInfo,
 };
 use branlly_storage_json::JsonMemoryStore;
 use futures_util::StreamExt;
@@ -298,6 +301,85 @@ async fn system_snapshot(state: State<'_, RuntimeState>) -> Result<SystemSnapsho
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
+async fn list_launch_items(state: State<'_, RuntimeState>) -> Result<Vec<LaunchItem>, String> {
+    state
+        .domain
+        .lock()
+        .map_err(|_| "Branlly state lock is poisoned".to_owned())
+        .map(|domain| domain.launch_items().to_vec())
+}
+
+#[tauri::command]
+async fn discover_applications(
+    state: State<'_, RuntimeState>,
+) -> Result<Vec<DiscoveredApplication>, String> {
+    if !state.platform.capabilities().can_discover_applications {
+        return Ok(Vec::new());
+    }
+    state
+        .platform
+        .discover_applications()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn save_launch_items(
+    items: Vec<LaunchItem>,
+    state: State<'_, RuntimeState>,
+) -> Result<Vec<LaunchItem>, String> {
+    let snapshot = {
+        let mut domain = state
+            .domain
+            .lock()
+            .map_err(|_| "Branlly state lock is poisoned".to_owned())?;
+        domain
+            .set_launch_items(items)
+            .map_err(|error| error.to_string())?;
+        MemorySnapshot::current(domain.clone())
+    };
+    state
+        .memory
+        .save(&snapshot)
+        .map_err(|error| error.to_string())?;
+    Ok(state
+        .domain
+        .lock()
+        .map_err(|_| "Branlly state lock is poisoned".to_owned())?
+        .launch_items()
+        .to_vec())
+}
+
+#[tauri::command]
+async fn launch_item(id: String, state: State<'_, RuntimeState>) -> Result<(), String> {
+    let item = state
+        .domain
+        .lock()
+        .map_err(|_| "Branlly state lock is poisoned".to_owned())?
+        .launch_items()
+        .iter()
+        .find(|item| item.id == id)
+        .cloned()
+        .ok_or_else(|| "Raccourci introuvable.".to_owned())?;
+    match item.launch {
+        LaunchConfiguration::Application {
+            identifier,
+            arguments,
+        } => state
+            .platform
+            .launch_app(&AppLaunchSpec {
+                identifier,
+                arguments,
+            })
+            .await
+            .map_err(|error| error.to_string()),
+        LaunchConfiguration::Routine { .. } => {
+            Err("Les routines ne sont pas encore disponibles.".to_owned())
+        }
+    }
+}
+
+#[tauri::command]
 async fn launch_shortcut(id: String, state: State<'_, RuntimeState>) -> Result<(), String> {
     let specification =
         shortcut_specification(&id).ok_or_else(|| "Raccourci inconnu ou interdit.".to_owned())?;
@@ -458,6 +540,32 @@ pub fn run() -> tauri::Result<()> {
         Some(snapshot) => snapshot.into_state().map_err(setup_error)?,
         None => BranllyState::new(BranllyConfig::default()).map_err(setup_error)?,
     };
+    let mut domain = domain;
+    if !domain.launcher_initialized() {
+        let defaults = ["discord", "youtube-music", "twitch", "stremio", "disney"]
+            .into_iter()
+            .enumerate()
+            .filter_map(|(order, id)| {
+                let order = u32::try_from(order).ok()?;
+                shortcut_specification(id).map(|spec| LaunchItem {
+                    id: id.to_owned(),
+                    kind: LaunchItemKind::Application,
+                    name: id.replace('-', " ").to_uppercase(),
+                    icon: None,
+                    order,
+                    platform: None,
+                    launch: LaunchConfiguration::Application {
+                        identifier: spec.identifier,
+                        arguments: spec.arguments,
+                    },
+                })
+            })
+            .collect();
+        domain.set_launch_items(defaults).map_err(setup_error)?;
+        memory
+            .save(&MemorySnapshot::current(domain.clone()))
+            .map_err(setup_error)?;
+    }
     let ollama = OllamaClient::new(
         "http://127.0.0.1:11434",
         domain.config().model.clone(),
@@ -493,6 +601,10 @@ pub fn run() -> tauri::Result<()> {
             close_window,
             system_snapshot,
             launch_shortcut,
+            list_launch_items,
+            discover_applications,
+            save_launch_items,
+            launch_item,
             wiki_search,
             cleanup_temp,
             pointer_position

@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use branlly_platform::{
-    AppLaunchSpec, DeviceInfo, NetworkStatus, Platform, PlatformCapabilities, PlatformError,
-    PointerPosition, WindowId, WindowInfo,
+    AppLaunchSpec, DeviceInfo, DiscoveredApplication, NetworkStatus, Platform,
+    PlatformCapabilities, PlatformError, PointerPosition, WindowId, WindowInfo,
 };
 use serde::Deserialize;
 use tokio::process::Command;
@@ -19,6 +19,16 @@ struct ProcessWindow {
     title: String,
     process_id: u32,
     application_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Shortcut {
+    id: String,
+    name: String,
+    icon: String,
+    target: String,
+    arguments: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +49,7 @@ impl Platform for WindowsPlatform {
             can_follow_pointer: true,
             can_query_network: true,
             can_query_bluetooth: true,
+            can_discover_applications: true,
         }
     }
 
@@ -82,6 +93,24 @@ impl Platform for WindowsPlatform {
             .spawn()
             .map_err(|error| process_error(identifier, &error))?;
         Ok(())
+    }
+
+    async fn discover_applications(&self) -> Result<Vec<DiscoveredApplication>, PlatformError> {
+        let script = r"$paths=@([Environment]::GetFolderPath('StartMenu'),[Environment]::GetFolderPath('CommonStartMenu'));$shell=New-Object -ComObject WScript.Shell;$items=@(Get-ChildItem $paths -Filter *.lnk -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.Name -notmatch '(?i)(uninstall|update|setup)'} | ForEach-Object {$s=$shell.CreateShortcut($_.FullName);if($s.TargetPath){[pscustomobject]@{Id=$_.FullName;Name=$_.BaseName;Icon=$s.IconLocation;Target=$s.TargetPath;Arguments=$s.Arguments}}});ConvertTo-Json -Compress -InputObject $items";
+        let json = powershell(script, &[]).await?;
+        let items: Vec<Shortcut> = serde_json::from_str(json.trim()).unwrap_or_default();
+        Ok(items
+            .into_iter()
+            .map(|item| DiscoveredApplication {
+                id: item.id,
+                name: item.name,
+                icon: (!item.icon.trim().is_empty()).then_some(item.icon),
+                launch: AppLaunchSpec {
+                    identifier: item.target,
+                    arguments: parse_windows_arguments(&item.arguments),
+                },
+            })
+            .collect())
     }
 
     async fn network_status(&self) -> Result<NetworkStatus, PlatformError> {
@@ -176,6 +205,43 @@ async fn powershell(script: &str, arguments: &[&str]) -> Result<String, Platform
         .map_err(|error| PlatformError::Service(format!("invalid PowerShell UTF-8: {error}")))
 }
 
+fn parse_windows_arguments(value: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut quoted = false;
+    let mut backslashes = 0;
+    for character in value.chars() {
+        if character == '\\' {
+            backslashes += 1;
+            continue;
+        }
+        if character == '"' {
+            current.extend(std::iter::repeat_n('\\', backslashes / 2));
+            if backslashes % 2 == 0 {
+                quoted = !quoted;
+            } else {
+                current.push('"');
+            }
+            backslashes = 0;
+        } else {
+            current.extend(std::iter::repeat_n('\\', backslashes));
+            backslashes = 0;
+            if character.is_whitespace() && !quoted {
+                if !current.is_empty() {
+                    result.push(std::mem::take(&mut current));
+                }
+            } else {
+                current.push(character);
+            }
+        }
+    }
+    current.extend(std::iter::repeat_n('\\', backslashes));
+    if !current.is_empty() {
+        result.push(current);
+    }
+    result
+}
+
 fn process_error(program: &str, error: &std::io::Error) -> PlatformError {
     match error.kind() {
         std::io::ErrorKind::NotFound => {
@@ -196,6 +262,20 @@ mod tests {
     fn validates_opaque_handles_without_command_injection() {
         assert!(validate_handle(&WindowId("0x000F12AB".to_owned())).is_ok());
         assert!(validate_handle(&WindowId("0x12; Stop-Process".to_owned())).is_err());
+    }
+
+    #[test]
+    fn parses_shortcut_arguments_without_losing_quotes_or_paths() {
+        assert_eq!(parse_windows_arguments(""), Vec::<String>::new());
+        assert_eq!(parse_windows_arguments("--safe-mode"), vec!["--safe-mode"]);
+        assert_eq!(
+            parse_windows_arguments("--profile \"C:\\Program Files\\Branlly\""),
+            vec!["--profile", "C:\\Program Files\\Branlly"]
+        );
+        assert_eq!(
+            parse_windows_arguments("--title \"hello world\" --flag"),
+            vec!["--title", "hello world", "--flag"]
+        );
     }
 
     #[test]

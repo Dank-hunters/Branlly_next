@@ -23,6 +23,19 @@ pub struct WindowInfo {
 
 /// Stable application launch request.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiscoveredApplication {
+    /// Adapter-owned stable source identifier.
+    pub id: String,
+    /// User-facing display name.
+    pub name: String,
+    /// Optional icon reference supplied by the system.
+    pub icon: Option<String>,
+    /// Structured executable and arguments.
+    pub launch: AppLaunchSpec,
+}
+
+/// Stable application launch request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppLaunchSpec {
     /// Freedesktop application id, executable, or Windows application id.
     pub identifier: String,
@@ -73,6 +86,8 @@ pub struct PlatformCapabilities {
     pub can_query_network: bool,
     /// Bluetooth integration.
     pub can_query_bluetooth: bool,
+    /// Installed application discovery is available.
+    pub can_discover_applications: bool,
 }
 
 /// Absolute pointer position in physical desktop pixels.
@@ -134,6 +149,8 @@ pub trait Platform: Send + Sync {
     ///
     /// Returns a typed validation, permission, or service error.
     async fn launch_app(&self, specification: &AppLaunchSpec) -> Result<(), PlatformError>;
+    /// Lists launchable desktop applications without scanning arbitrary disks.
+    async fn discover_applications(&self) -> Result<Vec<DiscoveredApplication>, PlatformError>;
     /// Queries network connectivity.
     ///
     /// # Errors
@@ -175,6 +192,7 @@ mod tests {
                 can_follow_pointer: false,
                 can_query_network: false,
                 can_query_bluetooth: false,
+                can_discover_applications: false,
             }
         );
     }

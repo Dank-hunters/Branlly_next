@@ -1,11 +1,15 @@
 //! Linux platform adapter with explicit X11 and Wayland capability detection.
 
-use std::path::Path;
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
 use branlly_platform::{
-    AppLaunchSpec, DeviceInfo, NetworkStatus, Platform, PlatformCapabilities, PlatformError,
-    PointerPosition, WindowId, WindowInfo,
+    AppLaunchSpec, DeviceInfo, DiscoveredApplication, NetworkStatus, Platform,
+    PlatformCapabilities, PlatformError, PointerPosition, WindowId, WindowInfo,
 };
 use tokio::process::Command;
 
@@ -78,6 +82,7 @@ impl Platform for LinuxPlatform {
             can_follow_pointer: x11 && command_exists("xdotool"),
             can_query_network: command_exists("nmcli"),
             can_query_bluetooth: command_exists("bluetoothctl"),
+            can_discover_applications: true,
         }
     }
 
@@ -108,6 +113,10 @@ impl Platform for LinuxPlatform {
             .spawn()
             .map_err(|error| map_process_error(identifier, &error))?;
         Ok(())
+    }
+
+    async fn discover_applications(&self) -> Result<Vec<DiscoveredApplication>, PlatformError> {
+        Ok(discover_desktop_entries())
     }
 
     async fn network_status(&self) -> Result<NetworkStatus, PlatformError> {
@@ -161,6 +170,76 @@ impl Platform for LinuxPlatform {
             .map(|(x, y)| PointerPosition { x, y })
             .ok_or_else(|| PlatformError::Service("invalid xdotool pointer output".to_owned()))
     }
+}
+
+fn discover_desktop_entries() -> Vec<DiscoveredApplication> {
+    let mut directories = vec![
+        PathBuf::from("/usr/share/applications"),
+        PathBuf::from("/usr/local/share/applications"),
+    ];
+    if let Some(home) = std::env::var_os("HOME") {
+        directories.insert(0, PathBuf::from(home).join(".local/share/applications"));
+    }
+    let mut found = BTreeMap::new();
+    for directory in directories {
+        let Ok(entries) = fs::read_dir(directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "desktop")
+                && let Some(application) = parse_desktop_entry(&path)
+            {
+                found.entry(application.id.clone()).or_insert(application);
+            }
+        }
+    }
+    found.into_values().collect()
+}
+
+fn parse_desktop_entry(path: &Path) -> Option<DiscoveredApplication> {
+    let text = fs::read_to_string(path).ok()?;
+    let mut values = BTreeMap::new();
+    let mut desktop = false;
+    for line in text.lines().map(str::trim) {
+        if line == "[Desktop Entry]" {
+            desktop = true;
+            continue;
+        }
+        if line.starts_with('[') {
+            desktop = false;
+        }
+        if desktop && let Some((key, value)) = line.split_once('=') {
+            values.insert(key, value);
+        }
+    }
+    if values
+        .get("NoDisplay")
+        .is_some_and(|value| *value == "true")
+        || values.get("Hidden").is_some_and(|value| *value == "true")
+    {
+        return None;
+    }
+    let name = values.get("Name")?.trim();
+    let exec = values
+        .get("Exec")?
+        .split_whitespace()
+        .next()?
+        .trim_matches('%');
+    if name.is_empty() || exec.is_empty() {
+        return None;
+    }
+    Some(DiscoveredApplication {
+        id: path.file_stem()?.to_string_lossy().to_string(),
+        name: name.to_owned(),
+        icon: values.get("Icon").map(|value| (*value).to_owned()),
+        launch: AppLaunchSpec {
+            identifier: exec.to_owned(),
+            arguments: Vec::new(),
+        },
+    })
 }
 
 fn command_exists(command: &str) -> bool {

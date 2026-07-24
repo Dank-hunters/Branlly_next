@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{BranllyState, CoreError};
 
 /// Current on-disk format version.
-pub const MEMORY_SCHEMA_VERSION: u32 = 1;
+pub const MEMORY_SCHEMA_VERSION: u32 = 2;
 
 /// Versioned persistence envelope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,13 +24,13 @@ impl MemorySnapshot {
         }
     }
 
-    /// Rejects unknown formats before returning their state.
+    /// Accepts the previous schema, whose absent launcher fields deserialize to defaults, and rejects unknown formats.
     ///
     /// # Errors
     ///
     /// Returns [`CoreError::UnsupportedSchema`] or a state validation error.
     pub fn into_state(self) -> Result<BranllyState, CoreError> {
-        if self.schema_version != MEMORY_SCHEMA_VERSION {
+        if !(1..=MEMORY_SCHEMA_VERSION).contains(&self.schema_version) {
             return Err(CoreError::UnsupportedSchema {
                 found: self.schema_version,
                 expected: MEMORY_SCHEMA_VERSION,

@@ -13,6 +13,10 @@
     getSystemSnapshot,
     isTauriRuntime,
     launchShortcut,
+    launchItem,
+    listLaunchItems,
+    discoverApplications,
+    saveLaunchItems,
     listOpenWindows,
     PREVIEW_STATUS,
     searchWikipedia,
@@ -22,6 +26,7 @@
     type WikiResult,
     type WindowInfo,
   } from './lib/backend'
+  import { addDiscovered, radialPositions, type DiscoveredApplication, type LaunchItem } from './lib/launcher'
 
   type View = 'pet' | 'menu' | 'chat' | 'games' | 'game' | 'apps' | 'windows' | 'system' | 'search'
   type UiMessage = { role: 'user' | 'assistant' | 'error'; content: string }
@@ -43,14 +48,7 @@
       { label: 'WIKI', action: 'search' }, { label: 'TERMINAL', action: 'unavailable', disabled: true },
       { label: 'RETOUR', action: 'menu:main' },
     ]},
-    applications: { title: 'APPLICATIONS', description: 'Raccourcis vers tes applis', items: [
-      { label: 'DISCORD', action: 'shortcut:discord', color: '#5865f2' },
-      { label: 'YT MUSIC', action: 'shortcut:youtube-music', color: '#ff0033' },
-      { label: 'TWITCH', action: 'shortcut:twitch', color: '#9146ff' },
-      { label: 'STREMIO', action: 'shortcut:stremio', color: '#6c5ce7' },
-      { label: 'DISNEY+', action: 'shortcut:disney', color: '#113ccf' },
-      { label: 'RETOUR', action: 'menu:main' },
-    ]},
+    applications: { title: 'APPLICATIONS', description: 'Raccourcis vers tes applis', items: [] },
     games: { title: 'JEUX', description: 'Mini-jeux et bordel interactif', items: [
       { label: 'TOUS', action: 'games' }, { label: 'METRO', action: 'game:metro' },
       { label: 'BLOCKCRAFT', action: 'game:blockcraft' }, { label: 'RETOUR', action: 'menu:main' },
@@ -97,6 +95,17 @@
   let followCursor = false
   let soundEnabled = true
   let menuPage: MenuPage = 'main'
+  let launchItems: LaunchItem[] = []
+  let discoveredApps: DiscoveredApplication[] = []
+  let appSearch = ''
+  let appPickerOpen = false
+  let deleteMode = false
+  let menuItems: RadialItem[] = []
+
+  $: menuItems = menuPage === 'applications'
+    ? [...launchItems.map((item) => ({ label: item.name, action: `launch:${item.id}` })), { label: 'RETOUR', action: 'menu:main' }]
+    : radialMenus[menuPage].items
+  $: positions = radialPositions(menuItems.length)
 
   onMount(() => {
     let active = true
@@ -113,6 +122,7 @@
           if (active) {
             status = nativeStatus
             backendReady = true
+            void loadLaunchItems()
           }
         })
         .catch((error: unknown) => console.error('Native bootstrap failed', error))
@@ -136,6 +146,11 @@
       window.removeEventListener('click', playUiSound, true)
     }
   })
+
+  async function loadLaunchItems() { try { launchItems = await listLaunchItems() } catch (error) { moduleError = String(error) } }
+  async function openPicker() { appPickerOpen = true; try { discoveredApps = await discoverApplications() } catch (error) { moduleError = String(error) } }
+  async function addApplication(application: DiscoveredApplication) { const next = addDiscovered(launchItems, application); if (next.length === launchItems.length) return; launchItems = await saveLaunchItems(next); appPickerOpen = false }
+  async function removeLaunchItem(id: string) { launchItems = await saveLaunchItems(launchItems.filter((item) => item.id !== id).map((item, order) => ({ ...item, order }))) }
 
   function beginDragging(event: PointerEvent) {
     if (!backendReady || event.button !== 0) return
@@ -170,6 +185,9 @@
   async function handleRadialAction(action: string) {
     if (action.startsWith('menu:')) {
       menuPage = action.slice(5) as MenuPage
+    } else if (action.startsWith('launch:')) {
+      const id = action.slice(7)
+      if (deleteMode) { await removeLaunchItem(id) } else { await launchItem(id) }
     } else if (action.startsWith('shortcut:')) {
       const shortcut = action.slice(9)
       if (shortcut === 'recycle-bin' && !window.confirm('Vider complètement la corbeille ?')) return
@@ -346,24 +364,28 @@
       <img src={`/assets/branlly/frame-${frame}.png`} alt="Branlly, compagnon trombone" width="182" height="180" />
     </button>
 
-  {:else if view === 'menu'}
+  {:else if view === 'menu' && !appPickerOpen}
     <section class="radial" aria-label={`Menu ${radialMenus[menuPage].title}`}>
       <div class="radial__rings" aria-hidden="true"></div>
       <span class="radial__title">. {radialMenus[menuPage].title} .</span>
       <span class="radial__telemetry">{status.mood.toUpperCase()} // ENERGY {status.energy}</span>
-      {#each radialMenus[menuPage].items as item, index}
+      {#each menuItems as item, index}
         <button
           class="radial__item"
           type="button"
           disabled={item.disabled}
-          style={`--angle:${-90 + index * (360 / radialMenus[menuPage].items.length)}deg;--accent:${item.color ?? '#38bdf8'}`}
+          class:radial__item--delete={deleteMode && item.action.startsWith('launch:')}
+          style={`--angle:${positions[index].angle}deg;--radius:${positions[index].ring === 0 ? 188 : 110}px;--accent:${item.color ?? '#38bdf8'}`}
           on:click={() => handleRadialAction(item.action)}
         >{item.label}</button>
       {/each}
+      {#if menuPage === 'applications'}<button class="radial__add" type="button" aria-label="Ajouter une application" on:click={openPicker}>+</button><button class:radial__remove--active={deleteMode} class="radial__remove" type="button" aria-label="Mode suppression" on:click={() => (deleteMode = !deleteMode)}>−</button>{/if}
       <button class="radial__core" type="button" aria-label="Retour au menu principal" on:click={() => (menuPage = 'main')}>{menuPage === 'main' ? 'B' : 'CORE'}</button>
       <button class="radial__exit" type="button" aria-label="Fermer le menu" on:click={() => changeView('pet')}>×</button>
       <p>{radialMenus[menuPage].description}</p>
     </section>
+  {:else if appPickerOpen}
+    <section class="module-panel" aria-label="Ajouter une application"><header><button type="button" on:click={() => (appPickerOpen = false)}>‹</button><strong>AJOUTER UNE APPLICATION</strong></header><input bind:value={appSearch} placeholder="Rechercher…" aria-label="Rechercher une application" />{#each discoveredApps.filter((app) => app.name.toLocaleLowerCase().includes(appSearch.toLocaleLowerCase())) as app}<button class="app-choice" type="button" on:click={() => addApplication(app)}>{#if app.icon}<span>◈</span>{/if}{app.name}</button>{:else}<p>Aucune application détectée.</p>{/each}</section>
   {:else if view === 'chat'}
     <section class="chat" aria-label="Chat local">
       <header>
