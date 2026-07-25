@@ -1,6 +1,6 @@
 <script lang="ts">
   import { LogicalPosition, LogicalSize } from '@tauri-apps/api/dpi'
-  import { getCurrentWindow } from '@tauri-apps/api/window'
+  import { currentMonitor, getCurrentWindow, PhysicalPosition, primaryMonitor } from '@tauri-apps/api/window'
   import { onMount } from 'svelte'
   import { nextFrame } from './lib/animation'
   import {
@@ -90,8 +90,9 @@
   let wikiQuery = ''
   let wikiResults: WikiResult[] = []
   let moduleError = ''
-  let dragTimer: number | undefined
+  let dragOrigin: { x: number; y: number } | null = null
   let dragging = false
+  let unlistenMoved: (() => void) | undefined
   let followCursor = false
   let soundEnabled = true
   let menuPage: MenuPage = 'main'
@@ -118,6 +119,10 @@
         }, 110)
 
     if (isTauriRuntime()) {
+      void keepWindowVisible()
+      void getCurrentWindow().onMoved(() => {
+        void keepWindowVisible()
+      }).then((unlisten) => { unlistenMoved = unlisten })
       fetchBootstrapStatus()
         .then((nativeStatus) => {
           if (active) {
@@ -144,6 +149,7 @@
       active = false
       if (timer !== undefined) window.clearInterval(timer)
       window.clearInterval(followTimer)
+      unlistenMoved?.()
       window.removeEventListener('click', playUiSound, true)
     }
   })
@@ -153,20 +159,31 @@
   async function addApplication(application: DiscoveredApplication) { const next = addDiscovered(launchItems, application); if (next.length === launchItems.length) return; launchItems = await saveLaunchItems(next); appPickerOpen = false }
   async function removeLaunchItem(id: string) { launchItems = await saveLaunchItems(launchItems.filter((item) => item.id !== id).map((item, order) => ({ ...item, order }))) }
 
+  async function keepWindowVisible() {
+    if (!isTauriRuntime()) return
+    const appWindow = getCurrentWindow()
+    const [monitor, size, position] = await Promise.all([currentMonitor().then((value) => value ?? primaryMonitor()), appWindow.outerSize(), appWindow.outerPosition()])
+    if (!monitor) return
+    const visible = 48
+    const x = Math.min(Math.max(position.x, monitor.position.x - size.width + visible), monitor.position.x + monitor.size.width - visible)
+    const y = Math.min(Math.max(position.y, monitor.position.y - size.height + visible), monitor.position.y + monitor.size.height - visible)
+    if (x !== position.x || y !== position.y) await appWindow.setPosition(new PhysicalPosition(x, y))
+  }
+
   function beginDragging(event: PointerEvent) {
-    if (!backendReady || event.button !== 0) return
+    if (!isTauriRuntime() || event.button !== 0) return
     dragging = false
-    dragTimer = window.setTimeout(() => {
-      dragging = true
-      getCurrentWindow().startDragging().catch((error: unknown) =>
-        console.error('Window dragging failed', error),
-      )
-    }, 180)
+    dragOrigin = { x: event.clientX, y: event.clientY }
+  }
+
+  function continueDragging(event: PointerEvent) {
+    if (!dragOrigin || dragging || Math.hypot(event.clientX - dragOrigin.x, event.clientY - dragOrigin.y) < 5) return
+    dragging = true
+    void getCurrentWindow().startDragging().catch((error: unknown) => console.error('Window dragging failed', error))
   }
 
   function endDragging() {
-    if (dragTimer !== undefined) window.clearTimeout(dragTimer)
-    dragTimer = undefined
+    dragOrigin = null
   }
 
   function openMainMenu() {
@@ -356,6 +373,7 @@
       type="button"
       aria-label="Ouvrir le menu de Branlly"
       on:pointerdown={beginDragging}
+      on:pointermove={continueDragging}
       on:pointerup={endDragging}
       on:pointercancel={endDragging}
       on:contextmenu|preventDefault={showWindows}
