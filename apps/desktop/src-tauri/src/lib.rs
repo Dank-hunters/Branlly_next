@@ -39,6 +39,19 @@ fn native_platform() -> NativePlatform {
     NativePlatform
 }
 
+#[cfg(target_os = "linux")]
+fn running_under_wsl() -> bool {
+    std::env::var_os("WSL_INTEROP").is_some()
+        || std::env::var_os("WSL_DISTRO_NAME").is_some()
+        || std::fs::read_to_string("/proc/sys/kernel/osrelease")
+            .is_ok_and(|value| value.to_ascii_lowercase().contains("microsoft"))
+}
+
+#[cfg(not(target_os = "linux"))]
+const fn running_under_wsl() -> bool {
+    false
+}
+
 struct RuntimeState {
     domain: Mutex<BranllyState>,
     platform: NativePlatform,
@@ -61,6 +74,7 @@ struct BootstrapStatus {
     energy: u8,
     capabilities: PlatformCapabilities,
     ollama_available: bool,
+    is_wsl: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -118,6 +132,7 @@ async fn bootstrap_status(state: State<'_, RuntimeState>) -> Result<BootstrapSta
         energy,
         capabilities: state.platform.capabilities(),
         ollama_available,
+        is_wsl: running_under_wsl(),
     })
 }
 

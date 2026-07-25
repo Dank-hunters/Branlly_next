@@ -216,30 +216,105 @@ fn parse_desktop_entry(path: &Path) -> Option<DiscoveredApplication> {
         }
     }
     if values
-        .get("NoDisplay")
-        .is_some_and(|value| *value == "true")
-        || values.get("Hidden").is_some_and(|value| *value == "true")
+        .get("Type")
+        .is_some_and(|value| *value != "Application")
+        || desktop_entry_hidden(&values)
+        || !desktop_entry_matches_session(&values)
     {
         return None;
     }
     let name = values.get("Name")?.trim();
-    let exec = values
-        .get("Exec")?
-        .split_whitespace()
-        .next()?
-        .trim_matches('%');
-    if name.is_empty() || exec.is_empty() {
+    let launch = parse_desktop_exec(values.get("Exec")?)?;
+    if name.is_empty() {
         return None;
     }
     Some(DiscoveredApplication {
         id: path.file_stem()?.to_string_lossy().to_string(),
         name: name.to_owned(),
-        icon: values.get("Icon").map(|value| (*value).to_owned()),
-        launch: AppLaunchSpec {
-            identifier: exec.to_owned(),
-            arguments: Vec::new(),
-        },
+        icon: values
+            .get("Icon")
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| (*value).to_owned()),
+        launch,
     })
+}
+
+fn desktop_entry_hidden(values: &BTreeMap<&str, &str>) -> bool {
+    ["NoDisplay", "Hidden"].into_iter().any(|key| {
+        values
+            .get(key)
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    })
+}
+
+fn desktop_entry_matches_session(values: &BTreeMap<&str, &str>) -> bool {
+    let current_desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
+    let desktops: Vec<_> = current_desktop
+        .split(':')
+        .filter(|value| !value.is_empty())
+        .collect();
+    let matches = |value: &str| {
+        value.split(';').any(|entry| {
+            desktops
+                .iter()
+                .any(|desktop| entry.eq_ignore_ascii_case(desktop))
+        })
+    };
+    values.get("OnlyShowIn").is_none_or(|value| matches(value))
+        && !values.get("NotShowIn").is_some_and(|value| matches(value))
+}
+
+fn parse_desktop_exec(value: &str) -> Option<AppLaunchSpec> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut quoted = false;
+    for character in value.chars() {
+        match character {
+            '"' => quoted = !quoted,
+            '\\' if quoted => current.push(character),
+            character if character.is_whitespace() && !quoted => {
+                if !current.is_empty() {
+                    tokens.push(std::mem::take(&mut current));
+                }
+            }
+            character => current.push(character),
+        }
+    }
+    if quoted {
+        return None;
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    let mut tokens = tokens
+        .into_iter()
+        .map(|token| strip_desktop_field_codes(&token))
+        .filter(|token| !token.is_empty());
+    let identifier = tokens.next()?;
+    Some(AppLaunchSpec {
+        identifier,
+        arguments: tokens.collect(),
+    })
+}
+
+fn strip_desktop_field_codes(value: &str) -> String {
+    let mut result = String::new();
+    let mut characters = value.chars();
+    while let Some(character) = characters.next() {
+        if character == '%' {
+            match characters.next() {
+                Some('%') | None => result.push('%'),
+                Some('f' | 'F' | 'u' | 'U' | 'i' | 'c' | 'k') => {}
+                Some(other) => {
+                    result.push('%');
+                    result.push(other);
+                }
+            }
+        } else {
+            result.push(character);
+        }
+    }
+    result
 }
 
 fn command_exists(command: &str) -> bool {
@@ -370,6 +445,44 @@ mod tests {
             capabilities.can_query_bluetooth,
             command_exists("bluetoothctl")
         );
+    }
+
+    #[test]
+    fn parses_desktop_exec_and_strips_field_codes() {
+        let parsed = parse_desktop_exec("\"/opt/Test App/test\" --open %U --title \"hello world\"");
+        assert_eq!(
+            parsed.as_ref().map(|item| item.identifier.as_str()),
+            Some("/opt/Test App/test")
+        );
+        assert_eq!(
+            parsed.map(|item| item.arguments),
+            Some(vec![
+                "--open".to_owned(),
+                "--title".to_owned(),
+                "hello world".to_owned(),
+            ])
+        );
+        assert_eq!(strip_desktop_field_codes("--file=%f %%"), "--file= %");
+    }
+
+    #[test]
+    fn filters_hidden_and_session_limited_desktop_entries() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let path = std::env::temp_dir().join(format!("branlly-{}.desktop", std::process::id()));
+        fs::write(
+            &path,
+            "[Desktop Entry]\nType=Application\nName=Hidden\nExec=hidden\nNoDisplay=true\n",
+        )?;
+        assert!(parse_desktop_entry(&path).is_none());
+        fs::write(
+            &path,
+            "[Desktop Entry]\nType=Application\nName=Visible\nExec=visible --open %U\n",
+        )?;
+        let item = parse_desktop_entry(&path).ok_or("visible desktop entry was skipped")?;
+        assert_eq!(item.launch.identifier, "visible");
+        assert_eq!(item.launch.arguments, vec!["--open"]);
+        fs::remove_file(path)?;
+        Ok(())
     }
 
     #[test]

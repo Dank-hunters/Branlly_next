@@ -26,7 +26,7 @@
     type WikiResult,
     type WindowInfo,
   } from './lib/backend'
-  import { addDiscovered, radialPositions, type DiscoveredApplication, type LaunchItem } from './lib/launcher'
+  import { addDiscovered, filterDiscovered, radialPositions, type DiscoveredApplication, type LaunchItem } from './lib/launcher'
 
   type View = 'pet' | 'menu' | 'chat' | 'games' | 'game' | 'apps' | 'windows' | 'system' | 'search'
   type UiMessage = { role: 'user' | 'assistant' | 'error'; content: string }
@@ -101,6 +101,7 @@
   let appPickerOpen = false
   let deleteMode = false
   let menuItems: RadialItem[] = []
+  $: filteredApps = filterDiscovered(discoveredApps, appSearch)
 
   $: menuItems = menuPage === 'applications'
     ? [...launchItems.map((item) => ({ label: item.name, action: `launch:${item.id}` })), { label: 'RETOUR', action: 'menu:main' }]
@@ -385,7 +386,7 @@
       <p>{radialMenus[menuPage].description}</p>
     </section>
   {:else if appPickerOpen}
-    <section class="module-panel" aria-label="Ajouter une application"><header><button type="button" on:click={() => (appPickerOpen = false)}>‹</button><strong>AJOUTER UNE APPLICATION</strong></header><input bind:value={appSearch} placeholder="Rechercher…" aria-label="Rechercher une application" />{#each discoveredApps.filter((app) => app.name.toLocaleLowerCase().includes(appSearch.toLocaleLowerCase())) as app}<button class="app-choice" type="button" on:click={() => addApplication(app)}>{#if app.icon}<span>◈</span>{/if}{app.name}</button>{:else}<p>Aucune application détectée.</p>{/each}</section>
+    <section class="module-panel" aria-label="Ajouter une application"><header><button type="button" on:click={() => (appPickerOpen = false)}>‹</button><strong>AJOUTER UNE APPLICATION</strong></header>{#if status.isWsl}<p>WSL : seules les applications Linux sont découvertes. Validez Windows avec le build natif.</p>{/if}<p>{discoveredApps.length} application(s) détectée(s) · {filteredApps.length} résultat(s)</p><input bind:value={appSearch} placeholder="Rechercher…" aria-label="Rechercher une application" />{#each filteredApps as app}<button class="app-choice" type="button" on:click={() => addApplication(app)}>{#if app.icon}<span>◈</span>{/if}{app.name}</button>{:else}<p>{discoveredApps.length ? 'Aucun résultat.' : 'Aucune application détectée.'}</p>{/each}</section>
   {:else if view === 'chat'}
     <section class="chat" aria-label="Chat local">
       <header>

@@ -19,6 +19,7 @@ export interface BootstrapStatus {
 	energy: number;
 	capabilities: PlatformCapabilities;
 	ollamaAvailable: boolean;
+	isWsl: boolean;
 }
 
 export type InvokeBackend = <T>(
@@ -62,6 +63,7 @@ export const PREVIEW_STATUS: BootstrapStatus = {
 	mood: "neutral",
 	energy: 65,
 	ollamaAvailable: false,
+	isWsl: false,
 	capabilities: {
 		canListWindows: false,
 		canFocusWindows: false,

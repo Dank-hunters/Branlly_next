@@ -16,6 +16,27 @@ export type DiscoveredApplication = {
 	launch: { identifier: string; arguments: string[] };
 };
 export type RadialPosition = { angle: number; ring: number };
+
+function searchKey(value: string): string {
+	return value
+		.normalize("NFD")
+		.replace(/\p{Diacritic}/gu, "")
+		.toLocaleLowerCase();
+}
+
+export function filterDiscovered(
+	applications: DiscoveredApplication[],
+	query: string,
+): DiscoveredApplication[] {
+	const needle = searchKey(query.trim());
+	if (!needle) return applications;
+	return applications.filter((application) =>
+		[application.name, application.id, application.launch.identifier].some(
+			(value) => searchKey(value).includes(needle),
+		),
+	);
+}
+
 export function radialPositions(count: number): RadialPosition[] {
 	if (!count) return [];
 	const inner = Math.min(count, 8);

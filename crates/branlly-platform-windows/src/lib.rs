@@ -98,7 +98,9 @@ impl Platform for WindowsPlatform {
     async fn discover_applications(&self) -> Result<Vec<DiscoveredApplication>, PlatformError> {
         let script = r"$paths=@([Environment]::GetFolderPath('StartMenu'),[Environment]::GetFolderPath('CommonStartMenu'));$shell=New-Object -ComObject WScript.Shell;$items=@(Get-ChildItem $paths -Filter *.lnk -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.Name -notmatch '(?i)(uninstall|update|setup)'} | ForEach-Object {$s=$shell.CreateShortcut($_.FullName);if($s.TargetPath){[pscustomobject]@{Id=$_.FullName;Name=$_.BaseName;Icon=$s.IconLocation;Target=$s.TargetPath;Arguments=$s.Arguments}}});ConvertTo-Json -Compress -InputObject $items";
         let json = powershell(script, &[]).await?;
-        let items: Vec<Shortcut> = serde_json::from_str(json.trim()).unwrap_or_default();
+        let items = parse_shortcuts(json.trim()).map_err(|error| {
+            PlatformError::Service(format!("invalid Start Menu shortcut JSON: {error}"))
+        })?;
         Ok(items
             .into_iter()
             .map(|item| DiscoveredApplication {
@@ -205,6 +207,15 @@ async fn powershell(script: &str, arguments: &[&str]) -> Result<String, Platform
         .map_err(|error| PlatformError::Service(format!("invalid PowerShell UTF-8: {error}")))
 }
 
+fn parse_shortcuts(value: &str) -> Result<Vec<Shortcut>, serde_json::Error> {
+    let value: serde_json::Value = serde_json::from_str(value)?;
+    serde_json::from_value(match value {
+        serde_json::Value::Array(_) => value,
+        serde_json::Value::Null => serde_json::Value::Array(Vec::new()),
+        item => serde_json::Value::Array(vec![item]),
+    })
+}
+
 fn parse_windows_arguments(value: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut current = String::new();
@@ -262,6 +273,15 @@ mod tests {
     fn validates_opaque_handles_without_command_injection() {
         assert!(validate_handle(&WindowId("0x000F12AB".to_owned())).is_ok());
         assert!(validate_handle(&WindowId("0x12; Stop-Process".to_owned())).is_err());
+    }
+
+    #[test]
+    fn normalizes_single_or_multiple_start_menu_shortcuts() -> Result<(), serde_json::Error> {
+        let one = r#"{"Id":"a","Name":"Discord","Icon":"","Target":"C:\\Program Files\\Discord\\Discord.exe","Arguments":""}"#;
+        assert_eq!(parse_shortcuts(one)?.len(), 1);
+        let many = format!("[{one},{one}]");
+        assert_eq!(parse_shortcuts(&many)?.len(), 2);
+        Ok(())
     }
 
     #[test]
