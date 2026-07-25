@@ -26,7 +26,7 @@
     type WikiResult,
     type WindowInfo,
   } from './lib/backend'
-  import { addDiscovered, filterDiscovered, radialPositions, type DiscoveredApplication, type LaunchItem } from './lib/launcher'
+  import { addDiscovered, filterDiscovered, isBrowser, launchUrlArgument, radialPositions, type DiscoveredApplication, type LaunchItem } from './lib/launcher'
 
   type View = 'pet' | 'menu' | 'chat' | 'games' | 'game' | 'apps' | 'windows' | 'system' | 'search'
   type UiMessage = { role: 'user' | 'assistant' | 'error'; content: string }
@@ -99,6 +99,8 @@
   let launchItems: LaunchItem[] = []
   let discoveredApps: DiscoveredApplication[] = []
   let appSearch = ''
+  let pendingBrowser: DiscoveredApplication | null = null
+  let browserUrl = ''
   let appPickerOpen = false
   let deleteMode = false
   let menuItems: RadialItem[] = []
@@ -156,7 +158,9 @@
 
   async function loadLaunchItems() { try { launchItems = await listLaunchItems() } catch (error) { moduleError = String(error) } }
   async function openPicker() { appPickerOpen = true; try { discoveredApps = await discoverApplications() } catch (error) { moduleError = String(error) } }
-  async function addApplication(application: DiscoveredApplication) { const next = addDiscovered(launchItems, application); if (next.length === launchItems.length) return; launchItems = await saveLaunchItems(next); appPickerOpen = false }
+  async function addApplication(application: DiscoveredApplication, url?: string) { const next = addDiscovered(launchItems, application, url); if (next.length === launchItems.length) return; launchItems = await saveLaunchItems(next); pendingBrowser = null; appPickerOpen = false }
+  function selectApplication(application: DiscoveredApplication) { if (isBrowser(application)) { pendingBrowser = application; browserUrl = '' } else { void addApplication(application) } }
+  async function confirmBrowser() { if (!pendingBrowser) return; const url = browserUrl.trim() ? launchUrlArgument(browserUrl) : undefined; if (url === null) { moduleError = 'URL HTTP ou HTTPS invalide.'; return } await addApplication(pendingBrowser, url) }
   async function removeLaunchItem(id: string) { launchItems = await saveLaunchItems(launchItems.filter((item) => item.id !== id).map((item, order) => ({ ...item, order }))) }
 
   async function keepWindowVisible() {
@@ -404,7 +408,7 @@
       <p>{radialMenus[menuPage].description}</p>
     </section>
   {:else if appPickerOpen}
-    <section class="module-panel" aria-label="Ajouter une application"><header><button type="button" on:click={() => (appPickerOpen = false)}>‹</button><strong>AJOUTER UNE APPLICATION</strong></header>{#if status.isWsl}<p>WSL : seules les applications Linux sont découvertes. Validez Windows avec le build natif.</p>{/if}<p>{discoveredApps.length} application(s) détectée(s) · {filteredApps.length} résultat(s)</p><input bind:value={appSearch} placeholder="Rechercher…" aria-label="Rechercher une application" />{#each filteredApps as app}<button class="app-choice" type="button" on:click={() => addApplication(app)}>{#if app.icon}<span>◈</span>{/if}{app.name}</button>{:else}<p>{discoveredApps.length ? 'Aucun résultat.' : 'Aucune application détectée.'}</p>{/each}</section>
+    <section class="module-panel" aria-label="Ajouter une application"><header><button type="button" on:click={() => (appPickerOpen = false)}>‹</button><strong>AJOUTER UNE APPLICATION</strong></header>{#if status.isWsl}<p>WSL : seules les applications Linux sont découvertes. Validez Windows avec le build natif.</p>{/if}<p>{discoveredApps.length} application(s) détectée(s) · {filteredApps.length} résultat(s)</p><input bind:value={appSearch} placeholder="Rechercher…" aria-label="Rechercher une application" />{#if pendingBrowser}<form on:submit|preventDefault={confirmBrowser}><p>URL de lancement pour {pendingBrowser.name} (optionnelle)</p><input bind:value={browserUrl} placeholder="https://…" aria-label="URL de lancement" /><button type="submit">AJOUTER LE NAVIGATEUR</button><button type="button" on:click={() => (pendingBrowser = null)}>ANNULER</button></form>{:else}{#each filteredApps as app}<button class="app-choice" type="button" on:click={() => selectApplication(app)}>{#if app.icon}<span>◈</span>{/if}{app.name}</button>{:else}<p>{discoveredApps.length ? 'Aucun résultat.' : 'Aucune application détectée.'}</p>{/each}{/if}{#if moduleError}<p class="module-error">{moduleError}</p>{/if}</section>
   {:else if view === 'chat'}
     <section class="chat" aria-label="Chat local">
       <header>

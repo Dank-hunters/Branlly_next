@@ -47,18 +47,32 @@ export function radialPositions(count: number): RadialPosition[] {
 		return { ring, angle: -90 + (offset * 360) / onRing };
 	});
 }
+export function isBrowser(application: DiscoveredApplication): boolean {
+	return /(?:chrome|chromium|firefox|opera|msedge|brave|vivaldi)\.exe$|(?:chrome|chromium|firefox|opera|brave|vivaldi)$/i.test(application.launch.identifier);
+}
+
+export function launchUrlArgument(value: string): string | null {
+	try {
+		const url = new URL(value.trim());
+		return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+	} catch {
+		return null;
+	}
+}
+
 export function addDiscovered(
 	items: LaunchItem[],
 	application: DiscoveredApplication,
+	url?: string,
 ): LaunchItem[] {
+	const argumentsWithUrl = url ? [...application.launch.arguments, url] : application.launch.arguments;
 	if (
 		items.some(
 			(item) =>
 				item.kind === "application" &&
 				item.launch.kind === "application" &&
 				item.launch.identifier === application.launch.identifier &&
-				item.launch.arguments.join("\0") ===
-					application.launch.arguments.join("\0"),
+				item.launch.arguments.join("\0") === argumentsWithUrl.join("\0"),
 		)
 	)
 		return items;
@@ -71,7 +85,7 @@ export function addDiscovered(
 			icon: application.icon,
 			order: items.length,
 			platform: null,
-			launch: { kind: "application", ...application.launch },
+			launch: { kind: "application", identifier: application.launch.identifier, arguments: argumentsWithUrl },
 		},
 	];
 }

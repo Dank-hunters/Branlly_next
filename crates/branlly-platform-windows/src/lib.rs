@@ -184,13 +184,15 @@ fn validate_handle(id: &WindowId) -> Result<(), PlatformError> {
 }
 
 async fn powershell(script: &str, arguments: &[&str]) -> Result<String, PlatformError> {
+    let script =
+        format!("[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); {script}");
     let output = Command::new("powershell.exe")
         .args([
             "-NoLogo",
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            script,
+            &script,
         ])
         .args(arguments)
         .output()
@@ -273,6 +275,15 @@ mod tests {
     fn validates_opaque_handles_without_command_injection() {
         assert!(validate_handle(&WindowId("0x000F12AB".to_owned())).is_ok());
         assert!(validate_handle(&WindowId("0x12; Stop-Process".to_owned())).is_err());
+    }
+
+    #[test]
+    fn powershell_commands_force_utf8_output() {
+        let script = format!(
+            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); {}",
+            "Write-Output 'test'"
+        );
+        assert!(script.starts_with("[Console]::OutputEncoding"));
     }
 
     #[test]

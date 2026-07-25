@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDiscovered, filterDiscovered, radialPositions } from "./launcher";
+import { addDiscovered, filterDiscovered, isBrowser, launchUrlArgument, radialPositions } from "./launcher";
 
 describe("launcher layout", () => {
 	it.each([1, 4, 8, 12, 16])(
@@ -40,6 +40,14 @@ describe("launcher layout", () => {
 			"Visual Studio",
 		]);
 		expect(filterDiscovered(apps, "absent")).toEqual([]);
+	});
+
+	it("recognizes browsers and accepts only web URLs", () => {
+		const browser = { id: "opera", name: "Opera GX", icon: null, launch: { identifier: "C:\\Apps\\opera.exe", arguments: [] } };
+		expect(isBrowser(browser)).toBe(true);
+		expect(launchUrlArgument("https://branlly.test/music")).toBe("https://branlly.test/music");
+		expect(launchUrlArgument("file:///secret")).toBeNull();
+		expect(addDiscovered([], browser, "https://branlly.test")[0].launch).toEqual({ kind: "application", identifier: browser.launch.identifier, arguments: ["https://branlly.test"] });
 	});
 
 	it("keeps order and prevents exact duplicates", () => {
