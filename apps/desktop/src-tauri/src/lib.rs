@@ -441,7 +441,10 @@ async fn wiki_search(query: String) -> Result<Vec<WikiResult>, String> {
     if query.is_empty() || query.chars().count() > 120 {
         return Err("La recherche doit contenir entre 1 et 120 caractères.".to_owned());
     }
-    let response: serde_json::Value = reqwest::Client::new()
+    let response: serde_json::Value = reqwest::Client::builder()
+        .user_agent("Branlly Next/0.4 (local desktop assistant)")
+        .build()
+        .map_err(|error| error.to_string())?
         .get("https://fr.wikipedia.org/w/api.php")
         .query(&[
             ("action", "opensearch"),
